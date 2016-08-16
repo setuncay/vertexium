@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.vertexium.inmemory.security;
+package org.vertexium.security;
 
 import java.util.ArrayList;
 
@@ -23,6 +23,11 @@ import java.util.ArrayList;
  */
 public class VisibilityEvaluator {
     private AuthorizationContainer auths;
+
+    // added to allow org.vertexium.security.Authorizations to be hidden at package scope
+    public VisibilityEvaluator(String[] authorizations) {
+        this(new Authorizations(authorizations));
+    }
 
     /**
      * Creates a new {@link Authorizations} object with escaped forms of the

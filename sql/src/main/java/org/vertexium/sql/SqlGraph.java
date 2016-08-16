@@ -1,238 +1,206 @@
 package org.vertexium.sql;
 
-import com.google.common.collect.Iterables;
 import org.vertexium.*;
-import org.vertexium.inmemory.*;
-import org.vertexium.mutation.SetPropertyMetadata;
-import org.vertexium.property.StreamingPropertyValue;
-import org.vertexium.property.StreamingPropertyValueRef;
-import org.vertexium.sql.collections.SqlMap;
-import org.vertexium.sql.collections.Storable;
-import org.vertexium.util.ConvertingIterable;
-import org.vertexium.util.LookAheadIterable;
+import org.vertexium.event.AddPropertyEvent;
+import org.vertexium.event.AddVertexEvent;
+import org.vertexium.event.DeletePropertyEvent;
+import org.vertexium.mutation.PropertyDeleteMutation;
+import org.vertexium.search.IndexHint;
+import org.vertexium.util.IncreasingTime;
 
-import java.util.*;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.EnumSet;
+import java.util.Map;
 
-public class SqlGraph extends InMemoryGraph {
-    private final SqlMap<InMemoryTableElement<InMemoryVertex>> vertexMap;
-    private final SqlMap<InMemoryTableElement<InMemoryEdge>> edgeMap;
-    private final SqlStreamingPropertyTable streamingPropertyTable;
+public class SqlGraph extends GraphBaseWithSearchIndex {
+    private final SqlGraphSQL sqlGraphSql;
+    private final GraphMetadataStore metadataStore;
 
-    private static class ConfigHolder {
-        final SqlGraphConfiguration configuration;
-        final SqlMap<InMemoryTableElement<InMemoryVertex>> vertexMap;
-        final SqlMap<InMemoryTableElement<InMemoryEdge>> edgeMap;
-        final SqlStreamingPropertyTable streamingPropertyTable;
-
-        ConfigHolder(SqlGraphConfiguration configuration) {
-            this.configuration = configuration;
-            this.vertexMap = configuration.newVertexMap();
-            this.edgeMap = configuration.newEdgeMap();
-            this.streamingPropertyTable = configuration.newStreamingPropertyTable();
-        }
-    }
-
-    public SqlGraph(SqlGraphConfiguration configuration) {
-        this(new ConfigHolder(configuration));
-    }
-
-    private SqlGraph(ConfigHolder configHolder) {
-        super(configHolder.configuration,
-                new SqlVertexTable(configHolder.vertexMap), new SqlEdgeTable(configHolder.edgeMap));
-        this.vertexMap = configHolder.vertexMap;
-        this.edgeMap = configHolder.edgeMap;
-        this.streamingPropertyTable = configHolder.streamingPropertyTable;
-        this.vertexMap.setStorableContext(this);
-        this.edgeMap.setStorableContext(this);
-    }
-
-    @Override
-    protected GraphMetadataStore newGraphMetadataStore(GraphConfiguration configuration) {
-        return new SqlGraphMetadataStore(((SqlGraphConfiguration) configuration).newMetadataMap());
+    protected SqlGraph(SqlGraphConfiguration configuration) {
+        super(configuration);
+        sqlGraphSql = new SqlGraphSQL(getConfiguration(), configuration.createSerializer(this));
+        metadataStore = new SqlGraphMetadataStore(this);
     }
 
     public static SqlGraph create(SqlGraphConfiguration config) {
-        if (config.isCreateTables()) {
-            SqlGraphDDL.create(config.getDataSource(), config);
+        if (config == null) {
+            throw new IllegalArgumentException("config cannot be null");
         }
         SqlGraph graph = new SqlGraph(config);
         graph.setup();
         return graph;
     }
 
-    @SuppressWarnings("unused")
-    public static SqlGraph create(Map<String, Object> config) {
+    public static SqlGraph create(Map config) {
         return create(new SqlGraphConfiguration(config));
     }
 
     @Override
-    public Vertex getVertex(String vertexId, EnumSet<FetchHint> fetchHints, Long endTime,
-                            Authorizations authorizations) {
-        validateAuthorizations(authorizations);
-
-        InMemoryTableElement<InMemoryVertex> element = vertexMap.get(vertexId);
-        if (element == null || !isIncludedInTimeSpan(element, fetchHints, endTime, authorizations)) {
-            return null;
-        } else {
-            return element.createElement(this, fetchHints.contains(FetchHint.INCLUDE_HIDDEN), endTime, authorizations);
+    protected void setup() {
+        if (getConfiguration().isCreateTables()) {
+            try (Connection conn = getConnection()) {
+                sqlGraphSql.createTables(conn);
+            } catch (Exception ex) {
+                throw new VertexiumException("Could not create tables", ex);
+            }
         }
+        super.setup();
     }
 
     @Override
-    public Iterable<Vertex> getVerticesWithPrefix(final String vertexIdPrefix, final EnumSet<FetchHint> fetchHints,
-                                                  final Long endTime, final Authorizations authorizations) {
-        validateAuthorizations(authorizations);
+    public void drop() {
+        throw new VertexiumException("not implemented");
+    }
 
-        final boolean includeHidden = fetchHints.contains(FetchHint.INCLUDE_HIDDEN);
+    @Override
+    public VertexBuilder prepareVertex(String vertexId, Long timestamp, Visibility visibility) {
+        if (vertexId == null) {
+            vertexId = getIdGenerator().nextId();
+        }
+        if (timestamp == null) {
+            timestamp = IncreasingTime.currentTimeMillis();
+        }
+        final long timestampLong = timestamp;
 
-        return new LookAheadIterable<InMemoryTableVertex, Vertex>() {
+        final String finalVertexId = vertexId;
+        return new SqlVertexBuilder(finalVertexId, visibility) {
             @Override
-            protected boolean isIncluded(InMemoryTableVertex element, Vertex vertex) {
-                return vertex != null && SqlGraph.this.isIncluded(element, fetchHints, authorizations);
-            }
+            public Vertex save(Authorizations authorizations) {
+                // This has to occur before createVertex since it will mutate the properties
+                getSqlGraphSql().verticesSaveVertexBuilder(SqlGraph.this, this, timestampLong);
 
-            @Override
-            protected Vertex convert(InMemoryTableVertex element) {
-                return element.createElement(SqlGraph.this, includeHidden, endTime, authorizations);
-            }
+                SqlVertex vertex = createVertex(authorizations);
 
-            @Override
-            protected Iterator<InMemoryTableVertex> createIterator() {
-                Iterator<InMemoryTableElement<InMemoryVertex>> elements = vertexMap.query("id like ?",
-                        vertexIdPrefix + "%");
+                if (getIndexHint() != IndexHint.DO_NOT_INDEX) {
+                    getSearchIndex().addElement(SqlGraph.this, vertex, authorizations);
+                }
 
-                return new ConvertingIterable<InMemoryTableElement<InMemoryVertex>, InMemoryTableVertex>(elements) {
-                    @Override
-                    protected InMemoryTableVertex convert(InMemoryTableElement<InMemoryVertex> element) {
-                        return ((SqlTableVertex) element).asInMemoryTableElement();
+                if (hasEventListeners()) {
+                    queueEvent(new AddVertexEvent(SqlGraph.this, vertex));
+                    for (Property property : getProperties()) {
+                        queueEvent(new AddPropertyEvent(SqlGraph.this, vertex, property));
                     }
-                }.iterator();
-            }
-        };
-    }
-
-    @Override
-    public Edge getEdge(String edgeId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-        InMemoryTableElement<InMemoryEdge> element = edgeMap.get(edgeId);
-        if (element == null || !isIncluded(element, fetchHints, authorizations)) {
-            return null;
-        } else {
-            return element.createElement(this, fetchHints.contains(FetchHint.INCLUDE_HIDDEN), endTime, authorizations);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public Iterable<Vertex> getVertices(final Iterable<String> ids, final EnumSet<FetchHint> fetchHints,
-                                        final Long endTime, final Authorizations authorizations) {
-        return (Iterable<Vertex>) getElements(ids, fetchHints, endTime, authorizations, vertexMap);
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public Iterable<Edge> getEdges(final Iterable<String> ids, final EnumSet<FetchHint> fetchHints, final Long endTime,
-                                   final Authorizations authorizations) {
-        return (Iterable<Edge>) getElements(ids, fetchHints, endTime, authorizations, edgeMap);
-    }
-
-    private <T extends InMemoryElement> Iterable<?> getElements(final Iterable<String> ids,
-                                                                final EnumSet<FetchHint> fetchHints, final Long endTime,
-                                                                final Authorizations authorizations,
-                                                                final SqlMap<InMemoryTableElement<T>> sqlMap) {
-        final boolean includeHidden = fetchHints.contains(FetchHint.INCLUDE_HIDDEN);
-
-        return new LookAheadIterable<InMemoryTableElement, T>() {
-            @Override
-            protected boolean isIncluded(InMemoryTableElement srcElement, T destElement) {
-                return destElement != null && SqlGraph.this.isIncluded(srcElement, fetchHints, authorizations);
-            }
-
-            @SuppressWarnings("unchecked")
-            @Override
-            protected T convert(InMemoryTableElement element) {
-                return (T) element.createElement(SqlGraph.this, includeHidden, endTime, authorizations);
-            }
-
-            @SuppressWarnings("unused")
-            @Override
-            protected Iterator<InMemoryTableElement> createIterator() {
-                StringBuilder idWhere = new StringBuilder();
-                boolean first = true;
-                for (String id : ids) {
-                    if (first) {
-                        idWhere.append("id = ?");
-                        first = false;
-                    } else {
-                        idWhere.append(" or id = ?");
+                    for (PropertyDeleteMutation propertyDeleteMutation : getPropertyDeletes()) {
+                        queueEvent(new DeletePropertyEvent(SqlGraph.this, vertex, propertyDeleteMutation));
                     }
                 }
 
-                if (first) {
-                    return Collections.emptyIterator();
-                } else {
-                    Iterator<InMemoryTableElement<T>> elements = sqlMap.query(idWhere.toString(),
-                            Iterables.toArray(ids, Object.class));
+                return vertex;
+            }
 
-                    return new ConvertingIterable<InMemoryTableElement, InMemoryTableElement>(elements) {
-                        @Override
-                        protected InMemoryTableElement convert(InMemoryTableElement element) {
-                            return ((SqlTableElement) element).asInMemoryTableElement();
-                        }
-                    }.iterator();
-                }
+            @Override
+            protected SqlVertex createVertex(Authorizations authorizations) {
+                Iterable<Visibility> hiddenVisibilities = null;
+                return new SqlVertex(
+                        SqlGraph.this,
+                        getVertexId(),
+                        getVisibility(),
+                        getProperties(),
+                        getPropertyDeletes(),
+                        getPropertySoftDeletes(),
+                        hiddenVisibilities,
+                        timestampLong,
+                        authorizations
+                );
             }
         };
     }
 
     @Override
-    public Iterable<Edge> getEdgesFromVertex(final String vertexId, final EnumSet<FetchHint> fetchHints,
-                                             final Long endTime, final Authorizations authorizations) {
-        final boolean includeHidden = fetchHints.contains(FetchHint.INCLUDE_HIDDEN);
-
-        return new LookAheadIterable<InMemoryTableEdge, Edge>() {
-            @Override
-            protected boolean isIncluded(InMemoryTableEdge element, Edge edge) {
-                return edge != null && SqlGraph.this.isIncluded(element, fetchHints, authorizations);
-            }
-
-            @Override
-            protected Edge convert(InMemoryTableEdge element) {
-                return element.createElement(SqlGraph.this, includeHidden, endTime, authorizations);
-            }
-
-            @Override
-            protected Iterator<InMemoryTableEdge> createIterator() {
-                Iterator<InMemoryTableElement<InMemoryEdge>> elements =
-                        edgeMap.query("in_vertex_id = ? or out_vertex_id = ?", vertexId, vertexId);
-
-                return new ConvertingIterable<InMemoryTableElement<InMemoryEdge>, InMemoryTableEdge>(elements) {
-                    @Override
-                    protected InMemoryTableEdge convert(InMemoryTableElement<InMemoryEdge> element) {
-                        return ((SqlTableEdge) element).asInMemoryTableElement();
-                    }
-                }.iterator();
-            }
-        };
+    public Iterable<Vertex> getVertices(EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+        return getSqlGraphSql().verticesSelectAll(this, fetchHints, endTime, authorizations);
     }
 
     @Override
-    protected void alterElementPropertyMetadata(
-            InMemoryTableElement inMemoryTableElement,
-            List<SetPropertyMetadata> setPropertyMetadatas,
-            Authorizations authorizations
-    ) {
-        super.alterElementPropertyMetadata(inMemoryTableElement, setPropertyMetadatas, authorizations);
-        ((Storable) inMemoryTableElement).store();
-    }
-
-    protected SqlStreamingPropertyTable getStreamingPropertyTable() {
-        return streamingPropertyTable;
+    public EdgeBuilder prepareEdge(String edgeId, Vertex outVertex, Vertex inVertex, String label, Long timestamp, Visibility visibility) {
+        throw new VertexiumException("not implemented");
     }
 
     @Override
-    protected StreamingPropertyValueRef saveStreamingPropertyValue(String elementId, String key, String name,
-                                                                   Visibility visibility, long timestamp,
-                                                                   StreamingPropertyValue value) {
-        return streamingPropertyTable.put(elementId, key, name, visibility, timestamp, value);
+    public EdgeBuilderByVertexId prepareEdge(String edgeId, String outVertexId, String inVertexId, String label, Long timestamp, Visibility visibility) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public void softDeleteVertex(Vertex vertex, Long timestamp, Authorizations authorizations) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public void softDeleteEdge(Edge edge, Long timestamp, Authorizations authorizations) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public Iterable<Edge> getEdges(EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    protected GraphMetadataStore getGraphMetadataStore() {
+        return metadataStore;
+    }
+
+    @Override
+    public void deleteVertex(Vertex vertex, Authorizations authorizations) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public void deleteEdge(Edge edge, Authorizations authorizations) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public boolean isVisibilityValid(Visibility visibility, Authorizations authorizations) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public void truncate() {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public void markVertexHidden(Vertex vertex, Visibility visibility, Authorizations authorizations) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public void markVertexVisible(Vertex vertex, Visibility visibility, Authorizations authorizations) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public void markEdgeHidden(Edge edge, Visibility visibility, Authorizations authorizations) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public void markEdgeVisible(Edge edge, Visibility visibility, Authorizations authorizations) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public Authorizations createAuthorizations(String... auths) {
+        throw new VertexiumException("not implemented");
+    }
+
+    @Override
+    public SqlGraphConfiguration getConfiguration() {
+        return (SqlGraphConfiguration) super.getConfiguration();
+    }
+
+    public SqlGraphSQL getSqlGraphSql() {
+        return sqlGraphSql;
+    }
+
+    public Connection getConnection() {
+        try {
+            return getConfiguration().getDataSource().getConnection();
+        } catch (SQLException ex) {
+            throw new VertexiumException("Could not get connection", ex);
+        }
     }
 }

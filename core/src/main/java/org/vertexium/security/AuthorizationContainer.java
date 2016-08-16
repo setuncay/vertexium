@@ -14,10 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.vertexium.inmemory.security;
+package org.vertexium.security;
 
-import java.nio.charset.Charset;
-
-class Constants {
-    public static final Charset UTF8 = Charset.forName("UTF-8");
+/**
+ * An interface for classes that contain a collection of authorizations.
+ */
+interface AuthorizationContainer {
+    /**
+     * Checks whether this object contains the given authorization.
+     *
+     * @param auth authorization, as a string encoded in UTF-8
+     * @return true if authorization is in this collection
+     */
+    boolean contains(ByteSequence auth);
 }

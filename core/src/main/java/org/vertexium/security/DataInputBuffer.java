@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.vertexium.inmemory.security;
+package org.vertexium.security;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInput;

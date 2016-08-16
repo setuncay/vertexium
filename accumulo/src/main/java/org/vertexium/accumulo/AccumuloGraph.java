@@ -82,7 +82,6 @@ public class AccumuloGraph extends GraphBaseWithSearchIndex implements Traceable
     private ThreadLocal<BatchWriter> dataWriter = new ThreadLocal<>();
     private ThreadLocal<BatchWriter> metadataWriter = new ThreadLocal<>();
     protected ElementMutationBuilder elementMutationBuilder;
-    private final Queue<GraphEvent> graphEventQueue = new LinkedList<>();
     private Integer accumuloGraphVersion;
     private boolean foundVertexiumSerializerMetadata;
     private final AccumuloNameSubstitutionStrategy nameSubstitutionStrategy;
@@ -321,12 +320,6 @@ public class AccumuloGraph extends GraphBaseWithSearchIndex implements Traceable
                 );
             }
         };
-    }
-
-    private void queueEvent(GraphEvent graphEvent) {
-        synchronized (this.graphEventQueue) {
-            this.graphEventQueue.add(graphEvent);
-        }
     }
 
     void saveProperties(
@@ -1052,30 +1045,11 @@ public class AccumuloGraph extends GraphBaseWithSearchIndex implements Traceable
         return m;
     }
 
-    @Override
-    public void flush() {
-        if (hasEventListeners()) {
-            synchronized (this.graphEventQueue) {
-                flushWritersAndSuper();
-                flushGraphEventQueue();
-            }
-        } else {
-            flushWritersAndSuper();
-        }
-    }
-
-    private void flushWritersAndSuper() {
+    protected void protectedFlush() {
         flushWriter(this.dataWriter.get());
         flushWriter(this.verticesWriter.get());
         flushWriter(this.edgesWriter.get());
-        super.flush();
-    }
-
-    private void flushGraphEventQueue() {
-        GraphEvent graphEvent;
-        while ((graphEvent = this.graphEventQueue.poll()) != null) {
-            fireGraphEvent(graphEvent);
-        }
+        super.protectedFlush();
     }
 
     private static void flushWriter(BatchWriter writer) {

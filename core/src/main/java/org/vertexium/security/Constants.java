@@ -14,14 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.vertexium.inmemory.security;
+package org.vertexium.security;
 
-import java.util.regex.PatternSyntaxException;
+import java.nio.charset.Charset;
 
-final class BadArgumentException extends PatternSyntaxException {
-    private static final long serialVersionUID = 1L;
-
-    public BadArgumentException(String desc, String badarg, int index) {
-        super(desc, badarg, index);
-    }
+class Constants {
+    public static final Charset UTF8 = Charset.forName("UTF-8");
 }

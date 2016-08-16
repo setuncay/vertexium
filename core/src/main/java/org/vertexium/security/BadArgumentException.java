@@ -14,17 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.vertexium.inmemory.security;
+package org.vertexium.security;
 
-/**
- * An interface for classes that contain a collection of authorizations.
- */
-interface AuthorizationContainer {
-    /**
-     * Checks whether this object contains the given authorization.
-     *
-     * @param auth authorization, as a string encoded in UTF-8
-     * @return true if authorization is in this collection
-     */
-    boolean contains(ByteSequence auth);
+import java.util.regex.PatternSyntaxException;
+
+final class BadArgumentException extends PatternSyntaxException {
+    private static final long serialVersionUID = 1L;
+
+    public BadArgumentException(String desc, String badarg, int index) {
+        super(desc, badarg, index);
+    }
 }

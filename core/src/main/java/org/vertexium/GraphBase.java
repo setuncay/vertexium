@@ -22,6 +22,7 @@ public abstract class GraphBase implements Graph {
     public static final String METADATA_DEFINE_PROPERTY_PREFIX = "defineProperty.";
     private final List<GraphEventListener> graphEventListeners = new ArrayList<>();
     private Map<String, PropertyDefinition> propertyDefinitionCache = new HashMap<>();
+    protected final Queue<GraphEvent> graphEventQueue = new LinkedList<>();
     private final boolean strictTyping;
 
     protected GraphBase(boolean strictTyping) {
@@ -898,5 +899,18 @@ public abstract class GraphBase implements Graph {
             valueClass = ((StreamingPropertyValueRef) value).getValueType();
         }
         return valueClass;
+    }
+
+    protected void queueEvent(GraphEvent graphEvent) {
+        synchronized (graphEventQueue) {
+            graphEventQueue.add(graphEvent);
+        }
+    }
+
+    protected void flushGraphEventQueue() {
+        GraphEvent graphEvent;
+        while ((graphEvent = this.graphEventQueue.poll()) != null) {
+            fireGraphEvent(graphEvent);
+        }
     }
 }

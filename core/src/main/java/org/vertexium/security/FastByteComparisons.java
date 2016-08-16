@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.vertexium.inmemory.security;
+package org.vertexium.security;
 
 import com.google.common.primitives.Longs;
 import com.google.common.primitives.UnsignedBytes;

@@ -1,4 +1,4 @@
-package org.vertexium.inmemory;
+package org.vertexium.sql;
 
 import org.vertexium.VertexiumException;
 import org.vertexium.Visibility;
@@ -11,11 +11,11 @@ import org.vertexium.util.Preconditions;
 import java.io.Serializable;
 import java.util.Arrays;
 
-public class InMemoryAuthorizations implements org.vertexium.Authorizations, Serializable {
+public class SqlGraphAuthorizations implements org.vertexium.Authorizations, Serializable {
     private static final long serialVersionUID = 1L;
     private final String[] authorizations;
 
-    public InMemoryAuthorizations(String... authorizations) {
+    public SqlGraphAuthorizations(String... authorizations) {
         this.authorizations = authorizations;
     }
 
@@ -61,7 +61,7 @@ public class InMemoryAuthorizations implements org.vertexium.Authorizations, Ser
             return false;
         }
 
-        InMemoryAuthorizations that = (InMemoryAuthorizations) o;
+        SqlGraphAuthorizations that = (SqlGraphAuthorizations) o;
 
         return ArrayUtils.intersectsAll(getAuthorizations(), that.getAuthorizations());
     }

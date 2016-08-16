@@ -7,7 +7,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.vertexium.*;
 import org.vertexium.id.UUIDIdGenerator;
-import org.vertexium.inmemory.InMemoryAuthorizations;
 import org.vertexium.search.DefaultSearchIndex;
 import org.vertexium.test.GraphTestBase;
 
@@ -57,7 +56,7 @@ public class SqlGraphTest extends GraphTestBase {
 
     @Override
     protected Authorizations createAuthorizations(String... auths) {
-        return new InMemoryAuthorizations(auths);
+        return new SqlGraphAuthorizations(auths);
     }
 
     @Override

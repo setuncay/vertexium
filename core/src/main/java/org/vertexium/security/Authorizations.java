@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.vertexium.inmemory.security;
+package org.vertexium.security;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -23,7 +23,7 @@ import java.util.*;
 /**
  * A collection of authorization strings.
  */
-public class Authorizations implements Iterable<byte[]>, Serializable, AuthorizationContainer {
+class Authorizations implements Iterable<byte[]>, Serializable, AuthorizationContainer {
 
     private static final long serialVersionUID = 1L;
 

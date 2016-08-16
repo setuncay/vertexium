@@ -122,7 +122,18 @@ public abstract class GraphBaseWithSearchIndex extends GraphBase implements Grap
     }
 
     @Override
-    public void flush() {
+    public final void flush() {
+        if (hasEventListeners()) {
+            synchronized (graphEventQueue) {
+                protectedFlush();
+                flushGraphEventQueue();
+            }
+        } else {
+            protectedFlush();
+        }
+    }
+
+    protected void protectedFlush() {
         if (getSearchIndex() != null) {
             this.searchIndex.flush(this);
         }

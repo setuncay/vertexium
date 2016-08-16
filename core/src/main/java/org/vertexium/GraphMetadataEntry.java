@@ -35,4 +35,11 @@ public class GraphMetadataEntry {
                 ", value=" + value +
                 '}';
     }
+
+    public static byte[] serializeValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        return JavaSerializableUtils.objectToBytes(value);
+    }
 }
