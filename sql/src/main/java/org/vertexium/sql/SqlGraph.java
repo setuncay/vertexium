@@ -1,15 +1,10 @@
 package org.vertexium.sql;
 
 import org.vertexium.*;
-import org.vertexium.event.AddPropertyEvent;
-import org.vertexium.event.AddVertexEvent;
-import org.vertexium.event.DeletePropertyEvent;
-import org.vertexium.mutation.PropertyDeleteMutation;
+import org.vertexium.event.GraphEvent;
 import org.vertexium.search.IndexHint;
 import org.vertexium.util.IncreasingTime;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.EnumSet;
 import java.util.Map;
 
@@ -39,11 +34,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
     @Override
     protected void setup() {
         if (getConfiguration().isCreateTables()) {
-            try (Connection conn = getConnection()) {
-                sqlGraphSql.createTables(conn);
-            } catch (Exception ex) {
-                throw new VertexiumException("Could not create tables", ex);
-            }
+            sqlGraphSql.createTables();
         }
         super.setup();
     }
@@ -77,16 +68,15 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
                 }
 
                 if (hasEventListeners()) {
-                    queueEvent(new AddVertexEvent(SqlGraph.this, vertex));
-                    for (Property property : getProperties()) {
-                        queueEvent(new AddPropertyEvent(SqlGraph.this, vertex, property));
-                    }
-                    for (PropertyDeleteMutation propertyDeleteMutation : getPropertyDeletes()) {
-                        queueEvent(new DeletePropertyEvent(SqlGraph.this, vertex, propertyDeleteMutation));
-                    }
+                    notifyEventListeners(SqlGraph.this, vertex);
                 }
 
                 return vertex;
+            }
+
+            @Override
+            protected void queueEvent(GraphEvent event) {
+                SqlGraph.this.queueEvent(event);
             }
 
             @Override
@@ -114,7 +104,84 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public EdgeBuilder prepareEdge(String edgeId, Vertex outVertex, Vertex inVertex, String label, Long timestamp, Visibility visibility) {
-        throw new VertexiumException("not implemented");
+        if (outVertex == null) {
+            throw new IllegalArgumentException("outVertex is required");
+        }
+        if (inVertex == null) {
+            throw new IllegalArgumentException("inVertex is required");
+        }
+        if (edgeId == null) {
+            edgeId = getIdGenerator().nextId();
+        }
+        if (timestamp == null) {
+            timestamp = IncreasingTime.currentTimeMillis();
+        }
+        final long timestampLong = timestamp;
+
+        final String finalEdgeId = edgeId;
+        return new EdgeBuilder(finalEdgeId, outVertex, inVertex, label, visibility) {
+            @Override
+            public Edge save(Authorizations authorizations) {
+                // This has to occur before createEdge since it will mutate the properties
+                getSqlGraphSql().edgeSaveEdgeBuilder(SqlGraph.this, this, timestampLong);
+
+                SqlEdge edge = createEdge(SqlGraph.this, this, timestampLong, authorizations);
+                if (getOutVertex() instanceof SqlVertex) {
+                    ((SqlVertex) getOutVertex()).addOutEdge(edge);
+                }
+                if (getInVertex() instanceof SqlVertex) {
+                    ((SqlVertex) getInVertex()).addInEdge(edge);
+                }
+                return savePreparedEdge(this, edge, authorizations);
+            }
+
+            @Override
+            protected void queueEvent(GraphEvent event) {
+                SqlGraph.this.queueEvent(event);
+            }
+        };
+    }
+
+    private SqlEdge createEdge(
+            SqlGraph graph,
+            EdgeBuilder edgeBuilder,
+            long timestamp,
+            Authorizations authorizations
+    ) {
+        Iterable<Visibility> hiddenVisibilities = null;
+        SqlEdge edge = new SqlEdge(
+                graph,
+                edgeBuilder.getEdgeId(),
+                edgeBuilder.getOutVertexId(),
+                edgeBuilder.getInVertexId(),
+                edgeBuilder.getLabel(),
+                edgeBuilder.getNewEdgeLabel(),
+                edgeBuilder.getVisibility(),
+                edgeBuilder.getProperties(),
+                edgeBuilder.getPropertyDeletes(),
+                edgeBuilder.getPropertySoftDeletes(),
+                hiddenVisibilities,
+                timestamp,
+                authorizations
+        );
+        return edge;
+    }
+
+
+    private Edge savePreparedEdge(
+            EdgeBuilderBase edgeBuilder,
+            SqlEdge edge,
+            Authorizations authorizations
+    ) {
+        if (edgeBuilder.getIndexHint() != IndexHint.DO_NOT_INDEX) {
+            getSearchIndex().addElement(this, edge, authorizations);
+        }
+
+        if (hasEventListeners()) {
+            edgeBuilder.notifyEventListeners(this, edge);
+        }
+
+        return edge;
     }
 
     @Override
@@ -134,7 +201,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public Iterable<Edge> getEdges(EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        return getSqlGraphSql().edgesSelectAll(this, fetchHints, endTime, authorizations);
     }
 
     @Override
@@ -194,13 +261,5 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     public SqlGraphSQL getSqlGraphSql() {
         return sqlGraphSql;
-    }
-
-    public Connection getConnection() {
-        try {
-            return getConfiguration().getDataSource().getConnection();
-        } catch (SQLException ex) {
-            throw new VertexiumException("Could not get connection", ex);
-        }
     }
 }

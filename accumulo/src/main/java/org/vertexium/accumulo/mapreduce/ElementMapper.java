@@ -6,6 +6,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.vertexium.*;
 import org.vertexium.accumulo.*;
+import org.vertexium.event.GraphEvent;
 import org.vertexium.id.IdGenerator;
 import org.vertexium.id.NameSubstitutionStrategy;
 import org.vertexium.util.IncreasingTime;
@@ -120,6 +121,11 @@ public abstract class ElementMapper<KEYIN, VALUEIN, KEYOUT, VALUEOUT> extends Ma
                         authorizations
                 );
             }
+
+            @Override
+            protected void queueEvent(GraphEvent event) {
+                ElementMapper.this.queueEvent(event);
+            }
         };
     }
 
@@ -187,6 +193,11 @@ public abstract class ElementMapper<KEYIN, VALUEIN, KEYOUT, VALUEOUT> extends Ma
                 );
                 return edge;
             }
+
+            @Override
+            protected void queueEvent(GraphEvent event) {
+                ElementMapper.this.queueEvent(event);
+            }
         };
     }
 
@@ -226,7 +237,16 @@ public abstract class ElementMapper<KEYIN, VALUEIN, KEYOUT, VALUEOUT> extends Ma
                 );
                 return edge;
             }
+
+            @Override
+            protected void queueEvent(GraphEvent event) {
+                ElementMapper.this.queueEvent(event);
+            }
         };
+    }
+
+    protected void queueEvent(GraphEvent event) {
+        // Do nothing. By default Mapper doesn't emit events.
     }
 
     public IdGenerator getIdGenerator() {

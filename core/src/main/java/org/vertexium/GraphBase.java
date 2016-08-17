@@ -78,12 +78,17 @@ public abstract class GraphBase implements Graph {
 
     @Override
     public Vertex getVertex(String vertexId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-        for (Vertex vertex : getVertices(fetchHints, endTime, authorizations)) {
-            if (vertex.getId().equals(vertexId)) {
-                return vertex;
+        Iterable<Vertex> vertices = getVertices(fetchHints, endTime, authorizations);
+        try {
+            for (Vertex vertex : vertices) {
+                if (vertex.getId().equals(vertexId)) {
+                    return vertex;
+                }
             }
+            return null;
+        } finally {
+            CloseableUtils.closeQuietly(vertices);
         }
-        return null;
     }
 
     @Override

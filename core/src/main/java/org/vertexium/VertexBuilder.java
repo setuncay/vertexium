@@ -1,5 +1,11 @@
 package org.vertexium;
 
+import org.vertexium.event.AddPropertyEvent;
+import org.vertexium.event.AddVertexEvent;
+import org.vertexium.event.DeletePropertyEvent;
+import org.vertexium.event.GraphEvent;
+import org.vertexium.mutation.PropertyDeleteMutation;
+
 public abstract class VertexBuilder extends ElementBuilder<Vertex> {
     private String vertexId;
     private Visibility visibility;
@@ -24,4 +30,16 @@ public abstract class VertexBuilder extends ElementBuilder<Vertex> {
     public Visibility getVisibility() {
         return visibility;
     }
+
+    protected void notifyEventListeners(Graph graph, Vertex vertex) {
+        queueEvent(new AddVertexEvent(graph, vertex));
+        for (Property property : getProperties()) {
+            queueEvent(new AddPropertyEvent(graph, vertex, property));
+        }
+        for (PropertyDeleteMutation propertyDeleteMutation : getPropertyDeletes()) {
+            queueEvent(new DeletePropertyEvent(graph, vertex, propertyDeleteMutation));
+        }
+    }
+
+    protected abstract void queueEvent(GraphEvent event);
 }

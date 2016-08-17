@@ -6,10 +6,15 @@ import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
 import org.vertexium.query.VertexQuery;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 
 public class SqlVertex extends SqlElement implements Vertex {
-    protected SqlVertex(
+    private final List<SqlEdge> outEdges = new ArrayList<>();
+    private final List<SqlEdge> inEdges = new ArrayList<>();
+
+    public SqlVertex(
             Graph graph,
             String id,
             Visibility visibility,
@@ -246,5 +251,13 @@ public class SqlVertex extends SqlElement implements Vertex {
     @Override
     public Iterable<EdgeVertexPair> getEdgeVertexPairs(Direction direction, String[] labels, EnumSet<FetchHint> fetchHints, Authorizations authorizations) {
         throw new VertexiumException("not implemented");
+    }
+
+    public void addOutEdge(SqlEdge edge) {
+        outEdges.add(edge);
+    }
+
+    public void addInEdge(SqlEdge edge) {
+        inEdges.add(edge);
     }
 }

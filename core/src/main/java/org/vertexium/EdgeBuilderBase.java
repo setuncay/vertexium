@@ -1,6 +1,9 @@
 package org.vertexium;
 
+import org.vertexium.event.*;
 import org.vertexium.mutation.EdgeMutation;
+import org.vertexium.mutation.PropertyDeleteMutation;
+import org.vertexium.mutation.PropertySoftDeleteMutation;
 
 public abstract class EdgeBuilderBase extends ElementBuilder<Edge> implements EdgeMutation {
     private final String edgeId;
@@ -48,4 +51,19 @@ public abstract class EdgeBuilderBase extends ElementBuilder<Edge> implements Ed
     public abstract String getOutVertexId();
 
     public abstract String getInVertexId();
+
+    public void notifyEventListeners(Graph graph, Edge edge) {
+        queueEvent(new AddEdgeEvent(graph, edge));
+        for (Property property : getProperties()) {
+            queueEvent(new AddPropertyEvent(graph, edge, property));
+        }
+        for (PropertyDeleteMutation propertyDeleteMutation : getPropertyDeletes()) {
+            queueEvent(new DeletePropertyEvent(graph, edge, propertyDeleteMutation));
+        }
+        for (PropertySoftDeleteMutation propertySoftDeleteMutation : getPropertySoftDeletes()) {
+            queueEvent(new SoftDeletePropertyEvent(graph, edge, propertySoftDeleteMutation));
+        }
+    }
+
+    protected abstract void queueEvent(GraphEvent event);
 }

@@ -289,19 +289,18 @@ public class AccumuloGraph extends GraphBaseWithSearchIndex implements Traceable
                     }
 
                     if (hasEventListeners()) {
-                        queueEvent(new AddVertexEvent(AccumuloGraph.this, vertex));
-                        for (Property property : getProperties()) {
-                            queueEvent(new AddPropertyEvent(AccumuloGraph.this, vertex, property));
-                        }
-                        for (PropertyDeleteMutation propertyDeleteMutation : getPropertyDeletes()) {
-                            queueEvent(new DeletePropertyEvent(AccumuloGraph.this, vertex, propertyDeleteMutation));
-                        }
+                        notifyEventListeners(AccumuloGraph.this, vertex);
                     }
 
                     return vertex;
                 } finally {
                     trace.stop();
                 }
+            }
+
+            @Override
+            protected void queueEvent(GraphEvent event) {
+                AccumuloGraph.this.queueEvent(event);
             }
 
             @Override
@@ -615,6 +614,11 @@ public class AccumuloGraph extends GraphBaseWithSearchIndex implements Traceable
             }
 
             @Override
+            protected void queueEvent(GraphEvent event) {
+                AccumuloGraph.this.queueEvent(event);
+            }
+
+            @Override
             protected AccumuloEdge createEdge(Authorizations authorizations) {
                 return AccumuloGraph.this.createEdge(AccumuloGraph.this, this, timestampLong, authorizations);
             }
@@ -665,6 +669,11 @@ public class AccumuloGraph extends GraphBaseWithSearchIndex implements Traceable
                     trace.stop();
                 }
             }
+
+            @Override
+            protected void queueEvent(GraphEvent event) {
+                AccumuloGraph.this.queueEvent(event);
+            }
         };
     }
 
@@ -708,16 +717,7 @@ public class AccumuloGraph extends GraphBaseWithSearchIndex implements Traceable
         }
 
         if (hasEventListeners()) {
-            queueEvent(new AddEdgeEvent(AccumuloGraph.this, edge));
-            for (Property property : edgeBuilder.getProperties()) {
-                queueEvent(new AddPropertyEvent(AccumuloGraph.this, edge, property));
-            }
-            for (PropertyDeleteMutation propertyDeleteMutation : edgeBuilder.getPropertyDeletes()) {
-                queueEvent(new DeletePropertyEvent(AccumuloGraph.this, edge, propertyDeleteMutation));
-            }
-            for (PropertySoftDeleteMutation propertySoftDeleteMutation : edgeBuilder.getPropertySoftDeletes()) {
-                queueEvent(new SoftDeletePropertyEvent(AccumuloGraph.this, edge, propertySoftDeleteMutation));
-            }
+            edgeBuilder.notifyEventListeners(this, edge);
         }
 
         return edge;

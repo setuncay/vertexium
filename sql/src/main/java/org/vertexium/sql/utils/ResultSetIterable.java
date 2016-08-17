@@ -5,12 +5,16 @@ import org.vertexium.util.CloseableIterator;
 import org.vertexium.util.VertexiumLogger;
 import org.vertexium.util.VertexiumLoggerFactory;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
-public abstract class ResultSetIterable<T> implements Iterable<T> {
+public abstract class ResultSetIterable<T> implements Iterable<T>, Closeable {
     private static final VertexiumLogger LOGGER = VertexiumLoggerFactory.getLogger(ResultSetIterable.class);
+    private List<ResultSetIterator> iterators = new ArrayList<>();
 
     @Override
     public Iterator<T> iterator() {
@@ -18,7 +22,9 @@ public abstract class ResultSetIterable<T> implements Iterable<T> {
             Connection conn = getConnection();
             PreparedStatement stmt = getStatement(conn);
             ResultSet resultSet = getResultSet(stmt);
-            return new ResultSetIterator(conn, stmt, resultSet);
+            ResultSetIterator it = new ResultSetIterator(conn, stmt, resultSet);
+            iterators.add(it);
+            return it;
         } catch (Exception ex) {
             throw new VertexiumException("Could not create iterator", ex);
         }
@@ -33,6 +39,13 @@ public abstract class ResultSetIterable<T> implements Iterable<T> {
     }
 
     protected abstract T readFromResultSet(ResultSet rs) throws SQLException;
+
+    @Override
+    public void close() throws IOException {
+        for (ResultSetIterator iterator : iterators) {
+            iterator.close();
+        }
+    }
 
     private class ResultSetIterator implements CloseableIterator<T> {
         private final Connection conn;
