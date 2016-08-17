@@ -58,16 +58,16 @@ public abstract class EdgeResultSetIterable extends ElementResultSetIterable<Edg
 
     @Override
     protected String readEdgeLabelFromSignalRow(ResultSet rs) throws SQLException {
-        return getSerializer().bytesToObject(rs.getBytes("value"));
+        return getSerializer().bytesToObject(rs.getBytes(SqlEdge.COLUMN_VALUE));
     }
 
     @Override
     protected String readEdgeOutVertexIdFromSignalRow(ResultSet rs) throws SQLException {
-        return rs.getString("out_vertex_id");
+        return rs.getString(SqlEdge.COLUMN_OUT_VERTEX_ID);
     }
 
     @Override
     protected String readEdgeInVertexIdFromSignalRow(ResultSet rs) throws SQLException {
-        return rs.getString("in_vertex_id");
+        return rs.getString(SqlEdge.COLUMN_IN_VERTEX_ID);
     }
 }

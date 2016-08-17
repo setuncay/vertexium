@@ -8,6 +8,9 @@ import org.vertexium.mutation.PropertySoftDeleteMutation;
 import java.util.EnumSet;
 
 public class SqlEdge extends SqlElement implements Edge {
+    public static final String COLUMN_OUT_VERTEX_ID = "out_vertex_id";
+    public static final String COLUMN_IN_VERTEX_ID = "in_vertex_id";
+
     private final String outVertexId;
     private final String inVertexId;
     private final String label;

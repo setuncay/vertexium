@@ -6,6 +6,7 @@ import org.vertexium.mutation.PropertySoftDeleteMutation;
 import org.vertexium.security.ColumnVisibility;
 import org.vertexium.security.VisibilityEvaluator;
 import org.vertexium.security.VisibilityParseException;
+import org.vertexium.sql.SqlElement;
 import org.vertexium.sql.SqlGraph;
 import org.vertexium.sql.SqlGraphSQL;
 import org.vertexium.util.VertexiumLogger;
@@ -63,7 +64,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
     }
 
     private T readElement(ResultSet rs) throws SQLException {
-        String key = rs.getString("key");
+        String id = rs.getString(SqlElement.COLUMN_ID);
         String outVertexId = null;
         String inVertexId = null;
         String label = null;
@@ -78,7 +79,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         // TODO endTime
 
         while (true) {
-            String visibilityString = rs.getString("visibility");
+            String visibilityString = rs.getString(SqlElement.COLUMN_VISIBILITY);
             try {
                 if (!visibilityEvaluator.evaluate(new ColumnVisibility(visibilityString))) {
                     if (!rs.next()) {
@@ -94,11 +95,11 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
                 continue;
             }
 
-            RowType rowType = RowType.fromValue(rs.getInt("type"));
+            RowType rowType = RowType.fromValue(rs.getInt(SqlElement.COLUMN_TYPE));
             switch (rowType) {
                 case SIGNAL:
                     visibility = sqlGraphSQL.visibilityFromSqlString(visibilityString);
-                    timestamp = rs.getLong("timestamp");
+                    timestamp = rs.getLong(SqlElement.COLUMN_TIMESTAMP);
                     label = readEdgeLabelFromSignalRow(rs);
                     outVertexId = readEdgeOutVertexIdFromSignalRow(rs);
                     inVertexId = readEdgeInVertexIdFromSignalRow(rs);
@@ -109,7 +110,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
                 break;
             }
 
-            if (!key.equals(rs.getString("key"))) {
+            if (!id.equals(rs.getString(SqlElement.COLUMN_ID))) {
                 break;
             }
         }
@@ -119,7 +120,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         }
 
         return createElement(
-                key,
+                id,
                 outVertexId,
                 inVertexId,
                 label,

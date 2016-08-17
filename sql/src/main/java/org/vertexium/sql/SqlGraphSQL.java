@@ -37,7 +37,7 @@ public class SqlGraphSQL {
             createColumnIndexes(
                     conn,
                     configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME),
-                    "in_vertex_id", "out_vertex_id"
+                    SqlEdge.COLUMN_IN_VERTEX_ID, SqlEdge.COLUMN_OUT_VERTEX_ID
             );
 
             createMetadataTable(conn);
@@ -56,13 +56,13 @@ public class SqlGraphSQL {
         String sql = String.format(
                 "CREATE TABLE IF NOT EXISTS %s (" +
                         "id BIGINT PRIMARY KEY AUTO_INCREMENT" +
-                        ", key VARCHAR(" + VARCHAR_SIZE + ")" +
-                        ", visibility VARCHAR(" + VARCHAR_SIZE + ")" +
-                        ", out_vertex_id VARCHAR(" + VARCHAR_SIZE + ")" +
-                        ", in_vertex_id VARCHAR(" + VARCHAR_SIZE + ")" +
-                        ", type INT" +
-                        ", timestamp BIGINT" +
-                        ", value " + BIG_BIN_COLUMN_TYPE +
+                        ", " + SqlEdge.COLUMN_ID + " VARCHAR(" + VARCHAR_SIZE + ")" +
+                        ", " + SqlEdge.COLUMN_VISIBILITY + " VARCHAR(" + VARCHAR_SIZE + ")" +
+                        ", " + SqlEdge.COLUMN_OUT_VERTEX_ID + " VARCHAR(" + VARCHAR_SIZE + ")" +
+                        ", " + SqlEdge.COLUMN_IN_VERTEX_ID + " VARCHAR(" + VARCHAR_SIZE + ")" +
+                        ", " + SqlEdge.COLUMN_TYPE + " INT" +
+                        ", " + SqlEdge.COLUMN_TIMESTAMP + " BIGINT" +
+                        ", " + SqlEdge.COLUMN_VALUE + " " + BIG_BIN_COLUMN_TYPE +
                         ")",
                 metadataTableName
         );
@@ -74,11 +74,11 @@ public class SqlGraphSQL {
         String sql = String.format(
                 "CREATE TABLE IF NOT EXISTS %s (" +
                         "id BIGINT PRIMARY KEY AUTO_INCREMENT" +
-                        ", key VARCHAR(" + VARCHAR_SIZE + ")" +
-                        ", visibility VARCHAR(" + VARCHAR_SIZE + ")" +
-                        ", type INT" +
-                        ", timestamp BIGINT" +
-                        ", value " + BIG_BIN_COLUMN_TYPE +
+                        ", " + SqlVertex.COLUMN_ID + " VARCHAR(" + VARCHAR_SIZE + ")" +
+                        ", " + SqlVertex.COLUMN_VISIBILITY + " VARCHAR(" + VARCHAR_SIZE + ")" +
+                        ", " + SqlVertex.COLUMN_TYPE + " INT" +
+                        ", " + SqlVertex.COLUMN_TIMESTAMP + " BIGINT" +
+                        ", " + SqlVertex.COLUMN_VALUE + " " + BIG_BIN_COLUMN_TYPE +
                         ")",
                 metadataTableName
         );
@@ -237,7 +237,15 @@ public class SqlGraphSQL {
     }
 
     private void vertexInsertRow(Connection conn, String vertexRowKey, RowType rowType, long timestamp, Visibility visibility, Object value) throws SQLException {
-        String sql = String.format("INSERT INTO %s (key, visibility, type, timestamp, value) VALUES (?, ?, ?, ?, ?)", configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME));
+        String sql = String.format(
+                "INSERT INTO %s (%s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?)",
+                configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME),
+                SqlVertex.COLUMN_ID,
+                SqlVertex.COLUMN_VISIBILITY,
+                SqlVertex.COLUMN_TYPE,
+                SqlVertex.COLUMN_TIMESTAMP,
+                SqlVertex.COLUMN_VALUE
+        );
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, vertexRowKey);
             stmt.setString(2, visibilityToSqlString(visibility));
@@ -270,7 +278,17 @@ public class SqlGraphSQL {
             String inVertexId,
             Object value
     ) throws SQLException {
-        String sql = String.format("INSERT INTO %s (key, visibility, out_vertex_id, in_vertex_id, type, timestamp, value) VALUES (?, ?, ?, ?, ?, ?, ?)", configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME));
+        String sql = String.format(
+                "INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME),
+                SqlEdge.COLUMN_ID,
+                SqlEdge.COLUMN_VISIBILITY,
+                SqlEdge.COLUMN_OUT_VERTEX_ID,
+                SqlEdge.COLUMN_IN_VERTEX_ID,
+                SqlEdge.COLUMN_TYPE,
+                SqlEdge.COLUMN_TIMESTAMP,
+                SqlEdge.COLUMN_VALUE
+        );
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, vertexRowKey);
             stmt.setString(2, visibilityToSqlString(visibility));
@@ -299,7 +317,7 @@ public class SqlGraphSQL {
     }
 
     public Iterable<Vertex> verticesSelectAll(SqlGraph graph, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-        final String sql = String.format("SELECT key, visibility, type, timestamp, value FROM %s", configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME));
+        final String sql = String.format("SELECT * FROM %s", configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME));
         return new VertexResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
             @Override
             protected Connection getConnection() throws SQLException {
@@ -371,7 +389,7 @@ public class SqlGraphSQL {
     }
 
     public Iterable<Edge> edgesSelectAll(SqlGraph graph, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-        final String sql = String.format("SELECT key, out_vertex_id, in_vertex_id, visibility, type, timestamp, value FROM %s", configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME));
+        final String sql = String.format("SELECT * FROM %s", configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME));
         return new EdgeResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
             @Override
             protected Connection getConnection() throws SQLException {

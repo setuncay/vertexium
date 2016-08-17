@@ -6,6 +6,12 @@ import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
 
 public class SqlElement extends ElementBase {
+    public static final String COLUMN_VALUE = "value";
+    public static final String COLUMN_VISIBILITY = "visibility";
+    public static final String COLUMN_TYPE = "type";
+    public static final String COLUMN_TIMESTAMP = "timestamp";
+    public static final String COLUMN_ID = "key";
+
     protected SqlElement(
             Graph graph,
             String id,
