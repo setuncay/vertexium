@@ -3,6 +3,7 @@ package org.vertexium.sql.utils;
 import org.vertexium.*;
 import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
+import org.vertexium.property.MutablePropertyImpl;
 import org.vertexium.security.ColumnVisibility;
 import org.vertexium.security.VisibilityEvaluator;
 import org.vertexium.security.VisibilityParseException;
@@ -14,9 +15,7 @@ import org.vertexium.util.VertexiumLoggerFactory;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.List;
+import java.util.*;
 
 public abstract class ElementResultSetIterable<T extends Element> extends SqlGraphSqlResultSetIterable<T> {
     private static final VertexiumLogger LOGGER = VertexiumLoggerFactory.getLogger(ElementResultSetIterable.class);
@@ -73,7 +72,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         List<Property> properties = new ArrayList<>();
         List<PropertyDeleteMutation> propertyDeleteMutations = new ArrayList<>();
         List<PropertySoftDeleteMutation> propertySoftDeleteMutations = new ArrayList<>();
-        List<Visibility> hiddenVisibilities = new ArrayList<>();
+        List<Visibility> vertexHiddenVisibilities = new ArrayList<>();
 
         // TODO fetchHints
         // TODO endTime
@@ -104,6 +103,27 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
                     outVertexId = readEdgeOutVertexIdFromSignalRow(rs);
                     inVertexId = readEdgeInVertexIdFromSignalRow(rs);
                     break;
+
+                case PROPERTY:
+                    String propertyKey = rs.getString(SqlElement.COLUMN_PROPERTY_KEY);
+                    String propertyName = rs.getString(SqlElement.COLUMN_PROPERTY_NAME);
+                    Object value = serializer.bytesToObject(rs.getBytes(SqlElement.COLUMN_VALUE));
+                    Metadata metadata = new Metadata(); // TODO
+                    Set<Visibility> hiddenVisibilities = new HashSet<>(); // TODO
+                    Property property = new MutablePropertyImpl(
+                            propertyKey,
+                            propertyName,
+                            value,
+                            metadata,
+                            timestamp,
+                            hiddenVisibilities,
+                            visibility
+                    );
+                    properties.add(property);
+                    break;
+
+                default:
+                    throw new VertexiumException("Unexpected row type: " + rowType);
             }
 
             if (!rs.next()) {
@@ -129,7 +149,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
                 properties,
                 propertyDeleteMutations,
                 propertySoftDeleteMutations,
-                hiddenVisibilities
+                vertexHiddenVisibilities
         );
     }
 

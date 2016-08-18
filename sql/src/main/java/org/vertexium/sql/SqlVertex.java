@@ -2,6 +2,7 @@ package org.vertexium.sql;
 
 import org.vertexium.*;
 import org.vertexium.mutation.ExistingElementMutation;
+import org.vertexium.mutation.ExistingElementMutationImpl;
 import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
 import org.vertexium.query.VertexQuery;
@@ -215,7 +216,13 @@ public class SqlVertex extends SqlElement implements Vertex {
 
     @Override
     public ExistingElementMutation<Vertex> prepareMutation() {
-        throw new VertexiumException("not implemented");
+        return new ExistingElementMutationImpl<Vertex>(this) {
+            @Override
+            public Vertex save(Authorizations authorizations) {
+                getGraph().getSqlGraphSql().saveExistingElementMutation(getGraph(), this, authorizations);
+                return getElement();
+            }
+        };
     }
 
     @Override

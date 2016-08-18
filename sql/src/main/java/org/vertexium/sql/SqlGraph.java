@@ -1,7 +1,12 @@
 package org.vertexium.sql;
 
 import org.vertexium.*;
+import org.vertexium.event.AddPropertyEvent;
+import org.vertexium.event.DeletePropertyEvent;
 import org.vertexium.event.GraphEvent;
+import org.vertexium.event.SoftDeletePropertyEvent;
+import org.vertexium.mutation.PropertyDeleteMutation;
+import org.vertexium.mutation.PropertySoftDeleteMutation;
 import org.vertexium.search.IndexHint;
 import org.vertexium.util.IncreasingTime;
 
@@ -59,7 +64,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
             @Override
             public Vertex save(Authorizations authorizations) {
                 // This has to occur before createVertex since it will mutate the properties
-                getSqlGraphSql().verticesSaveVertexBuilder(SqlGraph.this, this, timestampLong);
+                getSqlGraphSql().saveVertexBuilder(SqlGraph.this, this, timestampLong);
 
                 SqlVertex vertex = createVertex(authorizations);
 
@@ -99,7 +104,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public Iterable<Vertex> getVertices(EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-        return getSqlGraphSql().verticesSelectAll(this, fetchHints, endTime, authorizations);
+        return getSqlGraphSql().selectAllVertices(this, fetchHints, endTime, authorizations);
     }
 
     @Override
@@ -123,7 +128,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
             @Override
             public Edge save(Authorizations authorizations) {
                 // This has to occur before createEdge since it will mutate the properties
-                getSqlGraphSql().edgeSaveEdgeBuilder(SqlGraph.this, this, timestampLong);
+                getSqlGraphSql().saveEdgeBuilder(SqlGraph.this, this, timestampLong);
 
                 SqlEdge edge = createEdge(SqlGraph.this, this, timestampLong, authorizations);
                 if (getOutVertex() instanceof SqlVertex) {
@@ -201,7 +206,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public Iterable<Edge> getEdges(EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-        return getSqlGraphSql().edgesSelectAll(this, fetchHints, endTime, authorizations);
+        return getSqlGraphSql().selectAllEdges(this, fetchHints, endTime, authorizations);
     }
 
     @Override
@@ -261,5 +266,50 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     public SqlGraphSQL getSqlGraphSql() {
         return sqlGraphSql;
+    }
+
+    public void saveProperties(
+            SqlElement element,
+            Iterable<Property> properties,
+            Iterable<PropertyDeleteMutation> propertyDeletes,
+            Iterable<PropertySoftDeleteMutation> propertySoftDeletes,
+            IndexHint indexHint,
+            Authorizations authorizations
+    ) {
+        if (indexHint != IndexHint.DO_NOT_INDEX) {
+            for (PropertyDeleteMutation propertyDeleteMutation : propertyDeletes) {
+                getSearchIndex().deleteProperty(
+                        this,
+                        element,
+                        propertyDeleteMutation.getKey(),
+                        propertyDeleteMutation.getName(),
+                        propertyDeleteMutation.getVisibility(),
+                        authorizations
+                );
+            }
+            for (PropertySoftDeleteMutation propertySoftDeleteMutation : propertySoftDeletes) {
+                getSearchIndex().deleteProperty(
+                        this,
+                        element,
+                        propertySoftDeleteMutation.getKey(),
+                        propertySoftDeleteMutation.getName(),
+                        propertySoftDeleteMutation.getVisibility(),
+                        authorizations
+                );
+            }
+            getSearchIndex().addElement(this, element, authorizations);
+        }
+
+        if (hasEventListeners()) {
+            for (Property property : properties) {
+                queueEvent(new AddPropertyEvent(this, element, property));
+            }
+            for (PropertyDeleteMutation propertyDeleteMutation : propertyDeletes) {
+                queueEvent(new DeletePropertyEvent(this, element, propertyDeleteMutation));
+            }
+            for (PropertySoftDeleteMutation propertySoftDeleteMutation : propertySoftDeletes) {
+                queueEvent(new SoftDeletePropertyEvent(this, element, propertySoftDeleteMutation));
+            }
+        }
     }
 }

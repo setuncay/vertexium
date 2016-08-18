@@ -1,6 +1,10 @@
 package org.vertexium.sql;
 
 import org.vertexium.*;
+import org.vertexium.mutation.ExistingElementMutationImpl;
+import org.vertexium.mutation.PropertyDeleteMutation;
+import org.vertexium.mutation.PropertySoftDeleteMutation;
+import org.vertexium.search.IndexHint;
 import org.vertexium.sql.utils.*;
 import org.vertexium.util.VertexiumLogger;
 import org.vertexium.util.VertexiumLoggerFactory;
@@ -52,7 +56,7 @@ public class SqlGraphSQL {
     }
 
     private void createEdgeTable(Connection conn) {
-        String metadataTableName = configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME);
+        String edgeTableName = configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME);
         String sql = String.format(
                 "CREATE TABLE IF NOT EXISTS %s (" +
                         "id BIGINT PRIMARY KEY AUTO_INCREMENT" +
@@ -62,15 +66,17 @@ public class SqlGraphSQL {
                         ", " + SqlEdge.COLUMN_IN_VERTEX_ID + " VARCHAR(" + VARCHAR_SIZE + ")" +
                         ", " + SqlEdge.COLUMN_TYPE + " INT" +
                         ", " + SqlEdge.COLUMN_TIMESTAMP + " BIGINT" +
+                        ", " + SqlEdge.COLUMN_PROPERTY_KEY + " VARCHAR(" + VARCHAR_SIZE + ")" +
+                        ", " + SqlEdge.COLUMN_PROPERTY_NAME + " VARCHAR(" + VARCHAR_SIZE + ")" +
                         ", " + SqlEdge.COLUMN_VALUE + " " + BIG_BIN_COLUMN_TYPE +
                         ")",
-                metadataTableName
+                edgeTableName
         );
-        runSql(conn, sql, metadataTableName);
+        runSql(conn, sql, edgeTableName);
     }
 
     private void createVertexTable(Connection conn) {
-        String metadataTableName = configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME);
+        String vertexTableName = configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME);
         String sql = String.format(
                 "CREATE TABLE IF NOT EXISTS %s (" +
                         "id BIGINT PRIMARY KEY AUTO_INCREMENT" +
@@ -78,11 +84,13 @@ public class SqlGraphSQL {
                         ", " + SqlVertex.COLUMN_VISIBILITY + " VARCHAR(" + VARCHAR_SIZE + ")" +
                         ", " + SqlVertex.COLUMN_TYPE + " INT" +
                         ", " + SqlVertex.COLUMN_TIMESTAMP + " BIGINT" +
+                        ", " + SqlEdge.COLUMN_PROPERTY_KEY + " VARCHAR(" + VARCHAR_SIZE + ")" +
+                        ", " + SqlEdge.COLUMN_PROPERTY_NAME + " VARCHAR(" + VARCHAR_SIZE + ")" +
                         ", " + SqlVertex.COLUMN_VALUE + " " + BIG_BIN_COLUMN_TYPE +
                         ")",
-                metadataTableName
+                vertexTableName
         );
-        runSql(conn, sql, metadataTableName);
+        runSql(conn, sql, vertexTableName);
     }
 
     private void createMetadataTable(Connection conn) {
@@ -211,11 +219,11 @@ public class SqlGraphSQL {
         }
     }
 
-    public void verticesSaveVertexBuilder(SqlGraph sqlGraph, SqlVertexBuilder vertexBuilder, long timestamp) {
+    public void saveVertexBuilder(SqlGraph sqlGraph, SqlVertexBuilder vertexBuilder, long timestamp) {
         String vertexRowKey = vertexBuilder.getVertexId();
 
-        try (Connection conn = SqlGraphSQL.this.getConnection()) {
-            vertexInsertSignalRow(conn, vertexRowKey, timestamp, vertexBuilder.getVisibility());
+        try (Connection conn = getConnection()) {
+            insertVertexSignalRow(conn, vertexRowKey, timestamp, vertexBuilder.getVisibility());
 
             // TODO
 //        for (PropertyDeleteMutation propertyDeleteMutation : vertexBuilder.getPropertyDeletes()) {
@@ -224,26 +232,53 @@ public class SqlGraphSQL {
 //        for (PropertySoftDeleteMutation propertySoftDeleteMutation : vertexBuilder.getPropertySoftDeletes()) {
 //            addPropertySoftDeleteToMutation(m, propertySoftDeleteMutation);
 //        }
-//        for (Property property : vertexBuilder.getProperties()) {
-//            addPropertyToMutation(graph, m, vertexRowKey, property);
-//        }
+            for (Property property : vertexBuilder.getProperties()) {
+                insertVertexPropertyRow(conn, vertexRowKey, property);
+            }
         } catch (SQLException ex) {
             throw new VertexiumException("Could not save vertex builder: " + vertexRowKey, ex);
         }
     }
 
-    private void vertexInsertSignalRow(Connection conn, String vertexRowKey, long timestamp, Visibility visibility) throws SQLException {
-        vertexInsertRow(conn, vertexRowKey, RowType.SIGNAL, timestamp, visibility, null);
+    private void insertVertexSignalRow(Connection conn, String vertexRowKey, long timestamp, Visibility visibility) throws SQLException {
+        String propertyKey = null;
+        String propertyName = null;
+        Object value = null;
+        insertVertexRow(conn, vertexRowKey, RowType.SIGNAL, timestamp, visibility, propertyKey, propertyName, value);
     }
 
-    private void vertexInsertRow(Connection conn, String vertexRowKey, RowType rowType, long timestamp, Visibility visibility, Object value) throws SQLException {
+    private void insertVertexPropertyRow(Connection conn, String vertexRowKey, Property property) throws SQLException {
+        insertVertexRow(
+                conn,
+                vertexRowKey,
+                RowType.PROPERTY,
+                property.getTimestamp(),
+                property.getVisibility(),
+                property.getKey(),
+                property.getName(),
+                property.getValue()
+        );
+    }
+
+    private void insertVertexRow(
+            Connection conn,
+            String vertexRowKey,
+            RowType rowType,
+            long timestamp,
+            Visibility visibility,
+            String propertyKey,
+            String propertyName,
+            Object value
+    ) throws SQLException {
         String sql = String.format(
-                "INSERT INTO %s (%s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME),
                 SqlVertex.COLUMN_ID,
                 SqlVertex.COLUMN_VISIBILITY,
                 SqlVertex.COLUMN_TYPE,
                 SqlVertex.COLUMN_TIMESTAMP,
+                SqlVertex.COLUMN_PROPERTY_KEY,
+                SqlVertex.COLUMN_PROPERTY_NAME,
                 SqlVertex.COLUMN_VALUE
         );
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -251,12 +286,14 @@ public class SqlGraphSQL {
             stmt.setString(2, visibilityToSqlString(visibility));
             stmt.setInt(3, rowType.getValue());
             stmt.setLong(4, timestamp);
-            stmt.setBytes(5, valueToBytes(value));
+            stmt.setString(5, propertyKey);
+            stmt.setString(6, propertyName);
+            stmt.setBytes(7, valueToBytes(value));
             stmt.executeUpdate();
         }
     }
 
-    private void edgeInsertSignalRow(
+    private void insertEdgeSignalRow(
             Connection conn,
             String vertexRowKey,
             long timestamp,
@@ -265,21 +302,51 @@ public class SqlGraphSQL {
             String inVertexId,
             String label
     ) throws SQLException {
-        edgeInsertRow(conn, vertexRowKey, RowType.SIGNAL, timestamp, visibility, outVertexId, inVertexId, label);
+        String propertyKey = null;
+        String propertyName = null;
+        insertEdgeRow(
+                conn,
+                vertexRowKey,
+                RowType.SIGNAL,
+                timestamp,
+                visibility,
+                outVertexId,
+                inVertexId,
+                propertyKey,
+                propertyName,
+                label
+        );
     }
 
-    private void edgeInsertRow(
+    private void insertEdgePropertyRow(Connection conn, String edgeRowKey, Property property) throws SQLException {
+        insertEdgeRow(
+                conn,
+                edgeRowKey,
+                RowType.PROPERTY,
+                property.getTimestamp(),
+                property.getVisibility(),
+                null,
+                null,
+                property.getKey(),
+                property.getName(),
+                property.getValue()
+        );
+    }
+
+    private void insertEdgeRow(
             Connection conn,
-            String vertexRowKey,
+            String edgeRowKey,
             RowType rowType,
             long timestamp,
             Visibility visibility,
             String outVertexId,
             String inVertexId,
+            String propertyKey,
+            String propertyName,
             Object value
     ) throws SQLException {
         String sql = String.format(
-                "INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME),
                 SqlEdge.COLUMN_ID,
                 SqlEdge.COLUMN_VISIBILITY,
@@ -287,16 +354,20 @@ public class SqlGraphSQL {
                 SqlEdge.COLUMN_IN_VERTEX_ID,
                 SqlEdge.COLUMN_TYPE,
                 SqlEdge.COLUMN_TIMESTAMP,
+                SqlVertex.COLUMN_PROPERTY_KEY,
+                SqlVertex.COLUMN_PROPERTY_NAME,
                 SqlEdge.COLUMN_VALUE
         );
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, vertexRowKey);
+            stmt.setString(1, edgeRowKey);
             stmt.setString(2, visibilityToSqlString(visibility));
             stmt.setString(3, outVertexId);
             stmt.setString(4, inVertexId);
             stmt.setInt(5, rowType.getValue());
             stmt.setLong(6, timestamp);
-            stmt.setBytes(7, valueToBytes(value));
+            stmt.setString(7, propertyKey);
+            stmt.setString(8, propertyName);
+            stmt.setBytes(9, valueToBytes(value));
             stmt.executeUpdate();
         }
     }
@@ -316,7 +387,7 @@ public class SqlGraphSQL {
         return new Visibility(visibilityString);
     }
 
-    public Iterable<Vertex> verticesSelectAll(SqlGraph graph, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+    public Iterable<Vertex> selectAllVertices(SqlGraph graph, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
         final String sql = String.format("SELECT * FROM %s", configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME));
         return new VertexResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
             @Override
@@ -331,13 +402,13 @@ public class SqlGraphSQL {
         };
     }
 
-    public void edgeSaveEdgeBuilder(SqlGraph graph, EdgeBuilder edgeBuilder, long timestamp) {
+    public void saveEdgeBuilder(SqlGraph graph, EdgeBuilder edgeBuilder, long timestamp) {
         Visibility visibility = edgeBuilder.getVisibility();
         String outVertexId = edgeBuilder.getOutVertexId();
         String inVertexId = edgeBuilder.getInVertexId();
 
         try (Connection conn = SqlGraphSQL.this.getConnection()) {
-            edgeSaveToEdgeTable(conn, graph, edgeBuilder, visibility, outVertexId, inVertexId, timestamp);
+            saveToEdgeTable(conn, graph, edgeBuilder, visibility, outVertexId, inVertexId, timestamp);
 
             String edgeLabel = edgeBuilder.getNewEdgeLabel() != null ? edgeBuilder.getNewEdgeLabel() : edgeBuilder.getLabel();
             // TODO save edge info on vertices
@@ -353,7 +424,7 @@ public class SqlGraphSQL {
         }
     }
 
-    private void edgeSaveToEdgeTable(
+    private void saveToEdgeTable(
             Connection conn,
             SqlGraph graph,
             EdgeBuilder edgeBuilder,
@@ -370,25 +441,23 @@ public class SqlGraphSQL {
             // m.putDelete(AccumuloEdge.CF_SIGNAL, new Text(edgeBuilder.getLabel()), edgeColumnVisibility, currentTimeMillis());
         }
 
-        edgeInsertSignalRow(conn, edgeRowKey, timestamp, visibility, outVertexId, inVertexId, edgeLabel);
+        insertEdgeSignalRow(conn, edgeRowKey, timestamp, visibility, outVertexId, inVertexId, edgeLabel);
         // TODO m.put(AccumuloEdge.CF_OUT_VERTEX, new Text(edgeBuilder.getOutVertexId()), edgeColumnVisibility, timestamp, ElementMutationBuilder.EMPTY_VALUE);
         // TODO m.put(AccumuloEdge.CF_IN_VERTEX, new Text(edgeBuilder.getInVertexId()), edgeColumnVisibility, timestamp, ElementMutationBuilder.EMPTY_VALUE);
 
         // TODO save properties
-        /*
-        for (PropertyDeleteMutation propertyDeleteMutation : edgeBuilder.getPropertyDeletes()) {
-            addPropertyDeleteToMutation(m, propertyDeleteMutation);
-        }
-        for (PropertySoftDeleteMutation propertySoftDeleteMutation : edgeBuilder.getPropertySoftDeletes()) {
-            addPropertySoftDeleteToMutation(m, propertySoftDeleteMutation);
-        }
+//        for (PropertyDeleteMutation propertyDeleteMutation : edgeBuilder.getPropertyDeletes()) {
+//            addPropertyDeleteToMutation(m, propertyDeleteMutation);
+//        }
+//        for (PropertySoftDeleteMutation propertySoftDeleteMutation : edgeBuilder.getPropertySoftDeletes()) {
+//            addPropertySoftDeleteToMutation(m, propertySoftDeleteMutation);
+//        }
         for (Property property : edgeBuilder.getProperties()) {
-            addPropertyToMutation(graph, m, edgeRowKey, property);
+            insertEdgePropertyRow(conn, edgeRowKey, property);
         }
-        */
     }
 
-    public Iterable<Edge> edgesSelectAll(SqlGraph graph, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+    public Iterable<Edge> selectAllEdges(SqlGraph graph, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
         final String sql = String.format("SELECT * FROM %s", configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME));
         return new EdgeResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
             @Override
@@ -401,5 +470,99 @@ public class SqlGraphSQL {
                 return conn.prepareStatement(sql);
             }
         };
+    }
+
+    public void saveExistingElementMutation(
+            SqlGraph graph,
+            ExistingElementMutationImpl<Vertex> mutation,
+            Authorizations authorizations
+    ) {
+        try (Connection conn = getConnection()) {
+            // Order matters a lot here
+
+            // metadata must be altered first because the lookup of a property can include visibility which will be altered by alterElementPropertyVisibilities
+            // TODO getGraph().alterPropertyMetadatas((AccumuloElement) mutation.getElement(), mutation.getSetPropertyMetadatas());
+
+            // altering properties comes next because alterElementVisibility may alter the vertex and we won't find it
+            // TODO
+//        getGraph().alterElementPropertyVisibilities(
+//                (AccumuloElement) mutation.getElement(),
+//                mutation.getAlterPropertyVisibilities(),
+//                authorizations
+//        );
+
+            Iterable<PropertyDeleteMutation> propertyDeletes = mutation.getPropertyDeletes();
+            Iterable<PropertySoftDeleteMutation> propertySoftDeletes = mutation.getPropertySoftDeletes();
+            Iterable<Property> properties = mutation.getProperties();
+
+            // TODO
+//        overridePropertyTimestamps(properties);
+
+            ((SqlElement) mutation.getElement()).updatePropertiesInternal(properties, propertyDeletes, propertySoftDeletes);
+            saveProperties(
+                    conn,
+                    graph,
+                    (SqlElement) mutation.getElement(),
+                    properties,
+                    propertyDeletes,
+                    propertySoftDeletes,
+                    mutation.getIndexHint(),
+                    authorizations
+            );
+
+            // TODO
+//        if (mutation.getNewElementVisibility() != null) {
+//            getGraph().alterElementVisibility((AccumuloElement) mutation.getElement(), mutation.getNewElementVisibility(), authorizations);
+//        }
+//
+//        if (mutation instanceof EdgeMutation) {
+//            EdgeMutation edgeMutation = (EdgeMutation) mutation;
+//
+//            String newEdgeLabel = edgeMutation.getNewEdgeLabel();
+//            if (newEdgeLabel != null) {
+//                getGraph().alterEdgeLabel((AccumuloEdge) mutation.getElement(), newEdgeLabel);
+//            }
+//        }
+        } catch (SQLException e) {
+            throw new VertexiumException("Could not save existing element mutation", e);
+        }
+    }
+
+    void saveProperties(
+            Connection conn,
+            SqlGraph graph,
+            SqlElement element,
+            Iterable<Property> properties,
+            Iterable<PropertyDeleteMutation> propertyDeletes,
+            Iterable<PropertySoftDeleteMutation> propertySoftDeletes,
+            IndexHint indexHint,
+            Authorizations authorizations
+    ) throws SQLException {
+        String elementRowKey = element.getId();
+        // TODO
+//        for (PropertyDeleteMutation propertyDelete : propertyDeletes) {
+//            elementMutationBuilder.addPropertyDeleteToMutation(m, propertyDelete);
+//        }
+//        for (PropertySoftDeleteMutation propertySoftDelete : propertySoftDeletes) {
+//            elementMutationBuilder.addPropertySoftDeleteToMutation(m, propertySoftDelete);
+//        }
+        for (Property property : properties) {
+            if (element instanceof Vertex) {
+                insertVertexPropertyRow(conn, elementRowKey, property);
+            } else if (element instanceof Edge) {
+                insertEdgePropertyRow(conn, elementRowKey, property);
+            } else {
+                throw new VertexiumException("Unexpected element type: " + element.getClass().getName());
+            }
+        }
+
+        graph.saveProperties(
+                element,
+                properties,
+                propertyDeletes,
+                propertySoftDeletes,
+                indexHint,
+                authorizations
+        );
     }
 }

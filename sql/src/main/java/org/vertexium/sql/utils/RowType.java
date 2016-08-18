@@ -3,7 +3,8 @@ package org.vertexium.sql.utils;
 import org.vertexium.VertexiumException;
 
 public enum RowType {
-    SIGNAL(1);
+    SIGNAL(1),
+    PROPERTY(2);
 
     private final int value;
 
@@ -19,6 +20,8 @@ public enum RowType {
         switch (type) {
             case 1:
                 return SIGNAL;
+            case 2:
+                return PROPERTY;
         }
         throw new VertexiumException("Unhandled row type: " + type);
     }
