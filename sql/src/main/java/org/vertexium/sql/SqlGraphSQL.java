@@ -196,7 +196,7 @@ public class SqlGraphSQL {
 //            addPropertySoftDeleteToMutation(m, propertySoftDeleteMutation);
 //        }
             for (Property property : vertexBuilder.getProperties()) {
-                insertElementPropertyRow(conn, ElementType.VERTEX, vertexRowKey, property);
+                insertElementPropertyRow(sqlGraph, conn, ElementType.VERTEX, vertexRowKey, property);
             }
         } catch (SQLException ex) {
             throw new VertexiumException("Could not save vertex builder: " + vertexRowKey, ex);
@@ -227,11 +227,14 @@ public class SqlGraphSQL {
     }
 
     private void insertElementPropertyRow(
+            SqlGraph graph,
             Connection conn,
             ElementType elementType,
             String elementId,
             Property property
     ) {
+        graph.ensurePropertyDefined(property.getName(), property.getValue());
+
         PropertyValueValue value = new PropertyValueValue(
                 property.getKey(),
                 property.getName(),
@@ -321,11 +324,11 @@ public class SqlGraphSQL {
         };
     }
 
-    public void saveEdgeBuilder(EdgeBuilder edgeBuilder, long timestamp) {
+    public void saveEdgeBuilder(SqlGraph sqlGraph, EdgeBuilder edgeBuilder, long timestamp) {
         Visibility visibility = edgeBuilder.getVisibility();
 
         try (Connection conn = SqlGraphSQL.this.getConnection()) {
-            saveToEdgeTable(conn, edgeBuilder, visibility, timestamp);
+            saveToEdgeTable(sqlGraph, conn, edgeBuilder, visibility, timestamp);
 
             String edgeLabel = edgeBuilder.getNewEdgeLabel() != null ? edgeBuilder.getNewEdgeLabel() : edgeBuilder.getLabel();
             // TODO save edge info on vertices
@@ -342,6 +345,7 @@ public class SqlGraphSQL {
     }
 
     private void saveToEdgeTable(
+            SqlGraph sqlGraph,
             Connection conn,
             EdgeBuilder edgeBuilder,
             Visibility visibility,
@@ -369,7 +373,7 @@ public class SqlGraphSQL {
 //            addPropertySoftDeleteToMutation(m, propertySoftDeleteMutation);
 //        }
         for (Property property : edgeBuilder.getProperties()) {
-            insertElementPropertyRow(conn, ElementType.EDGE, edgeId, property);
+            insertElementPropertyRow(sqlGraph, conn, ElementType.EDGE, edgeId, property);
         }
     }
 
@@ -464,7 +468,7 @@ public class SqlGraphSQL {
 //        }
         for (Property property : properties) {
             ElementType elementType = ElementType.getTypeFromElement(element);
-            insertElementPropertyRow(conn, elementType, elementRowKey, property);
+            insertElementPropertyRow(graph, conn, elementType, elementRowKey, property);
         }
 
         graph.saveProperties(
