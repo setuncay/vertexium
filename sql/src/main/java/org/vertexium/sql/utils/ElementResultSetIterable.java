@@ -10,9 +10,7 @@ import org.vertexium.security.VisibilityParseException;
 import org.vertexium.sql.SqlElement;
 import org.vertexium.sql.SqlGraph;
 import org.vertexium.sql.SqlGraphSQL;
-import org.vertexium.sql.models.ElementSignalValueBase;
-import org.vertexium.sql.models.PropertyValueValue;
-import org.vertexium.sql.models.SqlGraphValueBase;
+import org.vertexium.sql.models.*;
 import org.vertexium.util.VertexiumLogger;
 import org.vertexium.util.VertexiumLoggerFactory;
 
@@ -139,10 +137,19 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         for (SqlGraphValueBase value : values) {
             if (value instanceof PropertyValueValue) {
                 PropertyValueValue v = (PropertyValueValue) value;
+                Object propertyValue = v.getValue();
+
+                if (propertyValue instanceof SqlStreamingPropertyValueRef) {
+                    SqlStreamingPropertyValueRef sspvr = (SqlStreamingPropertyValueRef) propertyValue;
+                    Class valueType = sspvr.getValueType();
+                    long length = sspvr.getLength();
+                    propertyValue = new SqlStreamingPropertyValue(getGraph(), sspvr, valueType, length);
+                }
+
                 Property property = new MutablePropertyImpl(
                         v.getPropertyKey(),
                         v.getPropertyName(),
-                        v.getValue(),
+                        propertyValue,
                         propertyMetadata,
                         v.getPropertyTimestamp(),
                         propertyHiddenVisibilities,

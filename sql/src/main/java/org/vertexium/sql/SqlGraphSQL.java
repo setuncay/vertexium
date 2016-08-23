@@ -4,12 +4,16 @@ import org.vertexium.*;
 import org.vertexium.mutation.ExistingElementMutationImpl;
 import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
+import org.vertexium.property.MutableProperty;
+import org.vertexium.property.StreamingPropertyValue;
 import org.vertexium.search.IndexHint;
 import org.vertexium.sql.models.*;
 import org.vertexium.sql.utils.*;
+import org.vertexium.util.StreamUtils;
 import org.vertexium.util.VertexiumLogger;
 import org.vertexium.util.VertexiumLoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.sql.*;
 import java.util.EnumSet;
 
@@ -17,6 +21,10 @@ public class SqlGraphSQL {
     private static final VertexiumLogger LOGGER = VertexiumLoggerFactory.getLogger(SqlGraphSQL.class);
     private static final String BIG_BIN_COLUMN_TYPE = "LONGBLOB";
     private static final String GET_TABLES_TABLE_NAME_COLUMN = "TABLE_NAME";
+    private static final String SPV_COLUMN_ID = "id";
+    private static final String SPV_COLUMN_VALUE = "value";
+    private static final String SPV_COLUMN_CLASS_NAME = "class_name";
+    private static final String SPV_COLUMN_LENGTH = "length";
 
     // MySQL's limit is 767 (http://dev.mysql.com/doc/refman/5.7/en/innodb-restrictions.html)
     private static final int ID_VARCHAR_SIZE = 767;
@@ -39,7 +47,6 @@ public class SqlGraphSQL {
             createVertexTable(conn);
             createEdgeTable(conn);
             createMetadataTable(conn);
-
             createStreamingPropertiesTable(conn);
         } catch (SQLException e) {
             throw new VertexiumException("Could not create tables", e);
@@ -87,8 +94,10 @@ public class SqlGraphSQL {
         String tableName = configuration.tableNameWithPrefix(SqlGraphConfiguration.STREAMING_PROPERTIES_TABLE_NAME);
         String sql = String.format(
                 "CREATE TABLE IF NOT EXISTS %s (" +
-                        "id BIGINT PRIMARY KEY AUTO_INCREMENT" +
-                        ", " + SqlElement.COLUMN_VALUE + " " + BIG_BIN_COLUMN_TYPE + " NOT NULL" +
+                        SPV_COLUMN_ID + " BIGINT PRIMARY KEY AUTO_INCREMENT" +
+                        ", " + SPV_COLUMN_CLASS_NAME + " varchar(" + ID_VARCHAR_SIZE + ") NOT NULL" +
+                        ", " + SPV_COLUMN_LENGTH + " INT NOT NULL" +
+                        ", " + SPV_COLUMN_VALUE + " " + BIG_BIN_COLUMN_TYPE + " NOT NULL" +
                         ")",
                 tableName
         );
@@ -150,6 +159,37 @@ public class SqlGraphSQL {
                 return new GraphMetadataEntry(key, value);
             }
         };
+    }
+
+    public StreamingPropertyValue selectStreamingPropertyValue(long spvRowId) {
+        String sql = String.format(
+                "SELECT * FROM %s WHERE %s=?",
+                configuration.tableNameWithPrefix(SqlGraphConfiguration.STREAMING_PROPERTIES_TABLE_NAME),
+                SPV_COLUMN_ID
+        );
+        try (Connection conn = getConnection()) {
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setLong(1, spvRowId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+                byte[] valueBytes = rs.getBytes(SPV_COLUMN_VALUE);
+                String className = rs.getString(SPV_COLUMN_CLASS_NAME);
+                long length = rs.getLong(SPV_COLUMN_LENGTH);
+
+                ByteArrayInputStream in = new ByteArrayInputStream(valueBytes);
+                Class valueType;
+                try {
+                    valueType = Class.forName(className);
+                } catch (ClassNotFoundException e) {
+                    throw new VertexiumException("Could not get class: " + className, e);
+                }
+                return new StreamingPropertyValue(in, valueType, length);
+            }
+        } catch (SQLException ex) {
+            throw new VertexiumException("Could not read StreamingPropertyValue", ex);
+        }
     }
 
     private Connection getConnection() throws SQLException {
@@ -232,11 +272,23 @@ public class SqlGraphSQL {
     ) {
         graph.ensurePropertyDefined(property.getName(), property.getValue());
 
+        Object propertyValue = property.getValue();
+        if (propertyValue instanceof StreamingPropertyValue) {
+            StreamingPropertyValue spv = (StreamingPropertyValue) propertyValue;
+            long id = insertStreamingPropertyValue(conn, spv);
+            SqlStreamingPropertyValueRef sspvr = new SqlStreamingPropertyValueRef(id, spv.getValueType(), spv.getLength());
+            propertyValue = sspvr;
+            if (property instanceof MutableProperty) {
+                MutableProperty mutableProperty = (MutableProperty) property;
+                mutableProperty.setValue(new SqlStreamingPropertyValue(graph, sspvr, spv.getValueType(), spv.getLength()));
+            }
+        }
+
         PropertyValueValue value = new PropertyValueValue(
                 property.getKey(),
                 property.getName(),
                 property.getTimestamp(),
-                property.getValue(),
+                propertyValue,
                 property.getVisibility()
         );
         insertElementRow(
@@ -248,6 +300,35 @@ public class SqlGraphSQL {
                 property.getVisibility(),
                 value
         );
+    }
+
+    private long insertStreamingPropertyValue(Connection conn, StreamingPropertyValue spv) {
+        String tableName = configuration.tableNameWithPrefix(SqlGraphConfiguration.STREAMING_PROPERTIES_TABLE_NAME);
+        String sql = String.format(
+                "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)",
+                tableName,
+                SPV_COLUMN_CLASS_NAME,
+                SPV_COLUMN_LENGTH,
+                SPV_COLUMN_VALUE
+        );
+        try {
+            byte[] bytes = StreamUtils.toBytes(spv.getInputStream());
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, spv.getValueType().getName());
+                stmt.setLong(2, spv.getLength());
+                stmt.setBytes(3, bytes);
+                stmt.executeUpdate();
+                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        return generatedKeys.getLong(1);
+                    } else {
+                        throw new VertexiumException("no ID obtained");
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            throw new VertexiumException("Could not insert row: " + tableName + ": " + sql, ex);
+        }
     }
 
     private void insertElementRow(
