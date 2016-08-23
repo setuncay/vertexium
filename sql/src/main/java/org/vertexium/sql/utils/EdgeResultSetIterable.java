@@ -6,9 +6,9 @@ import org.vertexium.mutation.PropertySoftDeleteMutation;
 import org.vertexium.sql.SqlEdge;
 import org.vertexium.sql.SqlGraph;
 import org.vertexium.sql.SqlGraphSQL;
+import org.vertexium.sql.models.EdgeSignalValue;
+import org.vertexium.sql.models.SqlGraphValueBase;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -25,49 +25,30 @@ public abstract class EdgeResultSetIterable extends ElementResultSetIterable<Edg
     }
 
     @Override
-    protected Edge createElement(
-            String id,
-            String outVertexId,
-            String inVertexId,
-            String label,
-            Visibility visibility,
-            Long timestamp,
-            List<Property> properties,
-            List<PropertyDeleteMutation> propertyDeleteMutations,
-            List<PropertySoftDeleteMutation> propertySoftDeleteMutations,
-            List<Visibility> hiddenVisibilities
-    ) {
+    protected Edge createElement(String id, List<SqlGraphValueBase> values) {
+        EdgeSignalValue edgeSignalValue = (EdgeSignalValue) getElementSignalValue(values);
+        if (edgeSignalValue == null) {
+            return null;
+        }
         String newEdgeLabel = null;
-
+        List<Property> properties = getProperties(values);
+        List<PropertyDeleteMutation> propertyDeleteMutations = getPropertyDeleteMutation(values);
+        List<PropertySoftDeleteMutation> propertySoftDeleteMutations = getPropertySoftDeleteMutation(values);
+        List<Visibility> hiddenVisibilities = getHiddenVisibilities(values);
         return new SqlEdge(
                 getGraph(),
                 id,
-                outVertexId,
-                inVertexId,
-                label,
+                edgeSignalValue.getOutVertexId(),
+                edgeSignalValue.getInVertexId(),
+                edgeSignalValue.getEdgeLabel(),
                 newEdgeLabel,
-                visibility,
+                edgeSignalValue.getVisibility(),
                 properties,
                 propertyDeleteMutations,
                 propertySoftDeleteMutations,
                 hiddenVisibilities,
-                timestamp,
+                edgeSignalValue.getTimestamp(),
                 getAuthorizations()
         );
-    }
-
-    @Override
-    protected String readEdgeLabelFromSignalRow(ResultSet rs) throws SQLException {
-        return getSerializer().bytesToObject(rs.getBytes(SqlEdge.COLUMN_VALUE));
-    }
-
-    @Override
-    protected String readEdgeOutVertexIdFromSignalRow(ResultSet rs) throws SQLException {
-        return rs.getString(SqlEdge.COLUMN_OUT_VERTEX_ID);
-    }
-
-    @Override
-    protected String readEdgeInVertexIdFromSignalRow(ResultSet rs) throws SQLException {
-        return rs.getString(SqlEdge.COLUMN_IN_VERTEX_ID);
     }
 }

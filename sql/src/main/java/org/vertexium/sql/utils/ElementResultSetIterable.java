@@ -10,6 +10,9 @@ import org.vertexium.security.VisibilityParseException;
 import org.vertexium.sql.SqlElement;
 import org.vertexium.sql.SqlGraph;
 import org.vertexium.sql.SqlGraphSQL;
+import org.vertexium.sql.models.ElementSignalValueBase;
+import org.vertexium.sql.models.PropertyValueValue;
+import org.vertexium.sql.models.SqlGraphValueBase;
 import org.vertexium.util.VertexiumLogger;
 import org.vertexium.util.VertexiumLoggerFactory;
 
@@ -64,15 +67,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
 
     private T readElement(ResultSet rs) throws SQLException {
         String id = rs.getString(SqlElement.COLUMN_ID);
-        String outVertexId = null;
-        String inVertexId = null;
-        String label = null;
-        Visibility visibility = null;
-        Long timestamp = null;
-        List<Property> properties = new ArrayList<>();
-        List<PropertyDeleteMutation> propertyDeleteMutations = new ArrayList<>();
-        List<PropertySoftDeleteMutation> propertySoftDeleteMutations = new ArrayList<>();
-        List<Visibility> vertexHiddenVisibilities = new ArrayList<>();
+        List<SqlGraphValueBase> values = new ArrayList<>();
 
         // TODO fetchHints
         // TODO endTime
@@ -94,37 +89,13 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
                 continue;
             }
 
-            RowType rowType = RowType.fromValue(rs.getInt(SqlElement.COLUMN_TYPE));
-            switch (rowType) {
-                case SIGNAL:
-                    visibility = sqlGraphSQL.visibilityFromSqlString(visibilityString);
-                    timestamp = rs.getLong(SqlElement.COLUMN_TIMESTAMP);
-                    label = readEdgeLabelFromSignalRow(rs);
-                    outVertexId = readEdgeOutVertexIdFromSignalRow(rs);
-                    inVertexId = readEdgeInVertexIdFromSignalRow(rs);
-                    break;
-
-                case PROPERTY:
-                    String propertyKey = rs.getString(SqlElement.COLUMN_PROPERTY_KEY);
-                    String propertyName = rs.getString(SqlElement.COLUMN_PROPERTY_NAME);
-                    Object value = serializer.bytesToObject(rs.getBytes(SqlElement.COLUMN_VALUE));
-                    Metadata metadata = new Metadata(); // TODO
-                    Set<Visibility> hiddenVisibilities = new HashSet<>(); // TODO
-                    Property property = new MutablePropertyImpl(
-                            propertyKey,
-                            propertyName,
-                            value,
-                            metadata,
-                            timestamp,
-                            hiddenVisibilities,
-                            visibility
-                    );
-                    properties.add(property);
-                    break;
-
-                default:
-                    throw new VertexiumException("Unexpected row type: " + rowType);
+            byte[] valueBytes = rs.getBytes(SqlElement.COLUMN_VALUE);
+            Object valueObject = serializer.bytesToObject(valueBytes);
+            if (!(valueObject instanceof SqlGraphValueBase)) {
+                throw new VertexiumException("Invalid valud object type: " + valueObject.getClass().getName());
             }
+            SqlGraphValueBase value = (SqlGraphValueBase) valueObject;
+            values.add(value);
 
             if (!rs.next()) {
                 break;
@@ -135,42 +106,10 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
             }
         }
 
-        if (visibility == null || timestamp == null) {
-            return null;
-        }
-
-        return createElement(
-                id,
-                outVertexId,
-                inVertexId,
-                label,
-                visibility,
-                timestamp,
-                properties,
-                propertyDeleteMutations,
-                propertySoftDeleteMutations,
-                vertexHiddenVisibilities
-        );
+        return createElement(id, values);
     }
 
-    protected abstract String readEdgeLabelFromSignalRow(ResultSet rs) throws SQLException;
-
-    protected abstract String readEdgeOutVertexIdFromSignalRow(ResultSet rs) throws SQLException;
-
-    protected abstract String readEdgeInVertexIdFromSignalRow(ResultSet rs) throws SQLException;
-
-    protected abstract T createElement(
-            String id,
-            String outVertexId,
-            String inVertexId,
-            String label,
-            Visibility visibility,
-            Long timestamp,
-            List<Property> properties,
-            List<PropertyDeleteMutation> propertyDeleteMutations,
-            List<PropertySoftDeleteMutation> propertySoftDeleteMutations,
-            List<Visibility> hiddenVisibilities
-    );
+    protected abstract T createElement(String id, List<SqlGraphValueBase> values);
 
     protected SqlGraph getGraph() {
         return graph;
@@ -182,5 +121,51 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
 
     protected VertexiumSerializer getSerializer() {
         return serializer;
+    }
+
+    protected ElementSignalValueBase getElementSignalValue(List<SqlGraphValueBase> values) {
+        for (SqlGraphValueBase value : values) {
+            if (value instanceof ElementSignalValueBase) {
+                return (ElementSignalValueBase) value;
+            }
+        }
+        return null;
+    }
+
+    protected List<Property> getProperties(List<SqlGraphValueBase> values) {
+        Metadata propertyMetadata = new Metadata(); // TODO
+        Set<Visibility> propertyHiddenVisibilities = new HashSet<>(); // TODO
+        ArrayList<Property> properties = new ArrayList<>();
+        for (SqlGraphValueBase value : values) {
+            if (value instanceof PropertyValueValue) {
+                PropertyValueValue v = (PropertyValueValue) value;
+                Property property = new MutablePropertyImpl(
+                        v.getPropertyKey(),
+                        v.getPropertyName(),
+                        v.getValue(),
+                        propertyMetadata,
+                        v.getPropertyTimestamp(),
+                        propertyHiddenVisibilities,
+                        v.getPropertyVisibility()
+                );
+                properties.add(property);
+            }
+        }
+        return properties;
+    }
+
+    protected List<PropertyDeleteMutation> getPropertyDeleteMutation(List<SqlGraphValueBase> values) {
+        // TODO
+        return new ArrayList<>();
+    }
+
+    protected List<PropertySoftDeleteMutation> getPropertySoftDeleteMutation(List<SqlGraphValueBase> values) {
+        // TODO
+        return new ArrayList<>();
+    }
+
+    protected List<Visibility> getHiddenVisibilities(List<SqlGraphValueBase> values) {
+        // TODO
+        return new ArrayList<>();
     }
 }

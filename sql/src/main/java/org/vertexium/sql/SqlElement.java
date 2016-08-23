@@ -11,8 +11,6 @@ public class SqlElement extends ElementBase {
     public static final String COLUMN_TYPE = "type";
     public static final String COLUMN_TIMESTAMP = "timestamp";
     public static final String COLUMN_ID = "key";
-    public static final String COLUMN_PROPERTY_KEY = "pkey";
-    public static final String COLUMN_PROPERTY_NAME = "pname";
 
     protected SqlElement(
             Graph graph,
