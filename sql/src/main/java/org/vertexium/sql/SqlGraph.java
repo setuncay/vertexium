@@ -130,12 +130,12 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
                 // This has to occur before createEdge since it will mutate the properties
                 getSqlGraphSql().saveEdgeBuilder(SqlGraph.this, this, timestampLong);
 
-                SqlEdge edge = createEdge(SqlGraph.this, this, timestampLong, authorizations);
+                final SqlEdge edge = createEdge(SqlGraph.this, this, timestampLong, authorizations);
                 if (getOutVertex() instanceof SqlVertex) {
-                    ((SqlVertex) getOutVertex()).addOutEdge(edge);
+                    ((SqlVertex) getOutVertex()).addOutEdgeInfo(edge);
                 }
                 if (getInVertex() instanceof SqlVertex) {
-                    ((SqlVertex) getInVertex()).addInEdge(edge);
+                    ((SqlVertex) getInVertex()).addInEdgeInfo(edge);
                 }
                 return savePreparedEdge(this, edge, authorizations);
             }

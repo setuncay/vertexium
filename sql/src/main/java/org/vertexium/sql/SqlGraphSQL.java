@@ -5,10 +5,7 @@ import org.vertexium.mutation.ExistingElementMutationImpl;
 import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
 import org.vertexium.search.IndexHint;
-import org.vertexium.sql.models.EdgeSignalValue;
-import org.vertexium.sql.models.PropertyValueValue;
-import org.vertexium.sql.models.SqlGraphValueBase;
-import org.vertexium.sql.models.VertexSignalValue;
+import org.vertexium.sql.models.*;
 import org.vertexium.sql.utils.*;
 import org.vertexium.util.VertexiumLogger;
 import org.vertexium.util.VertexiumLoggerFactory;
@@ -310,7 +307,11 @@ public class SqlGraphSQL {
     }
 
     public Iterable<Vertex> selectAllVertices(SqlGraph graph, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-        final String sql = String.format("SELECT * FROM %s", configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME));
+        final String sql = String.format(
+                "SELECT * FROM %s ORDER BY %s",
+                configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME),
+                SqlVertex.COLUMN_ID
+        );
         return new VertexResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
             @Override
             protected Connection getConnection() throws SQLException {
@@ -331,17 +332,35 @@ public class SqlGraphSQL {
             saveToEdgeTable(sqlGraph, conn, edgeBuilder, visibility, timestamp);
 
             String edgeLabel = edgeBuilder.getNewEdgeLabel() != null ? edgeBuilder.getNewEdgeLabel() : edgeBuilder.getLabel();
-            // TODO save edge info on vertices
-//            saveEdgeInfoOnVertex(
-//                    edgeBuilder.getEdgeId(),
-//                    edgeBuilder.getOutVertexId(),
-//                    edgeBuilder.getInVertexId(),
-//                    edgeLabel,
-//                    edgeVisibility
-//            );
+
+            saveEdgeInfoOnVertex(
+                    conn,
+                    edgeBuilder.getEdgeId(),
+                    edgeBuilder.getOutVertexId(),
+                    edgeBuilder.getInVertexId(),
+                    edgeLabel,
+                    timestamp,
+                    edgeBuilder.getVisibility()
+            );
         } catch (SQLException ex) {
             throw new VertexiumException("Could not save edge builder: " + edgeBuilder.getEdgeId(), ex);
         }
+    }
+
+    private void saveEdgeInfoOnVertex(
+            Connection conn,
+            String edgeId,
+            String outVertexId,
+            String inVertexId,
+            String edgeLabel,
+            long timestamp,
+            Visibility edgeVisibility
+    ) {
+        EdgeInfoValue edgeInfoValue = new EdgeInfoValue(Direction.OUT, edgeId, edgeLabel, inVertexId, edgeVisibility);
+        insertElementRow(conn, ElementType.VERTEX, outVertexId, RowType.OUT_EDGE_INFO, timestamp, edgeVisibility, edgeInfoValue);
+
+        edgeInfoValue = new EdgeInfoValue(Direction.IN, edgeId, edgeLabel, outVertexId, edgeVisibility);
+        insertElementRow(conn, ElementType.VERTEX, inVertexId, RowType.IN_EDGE_INFO, timestamp, edgeVisibility, edgeInfoValue);
     }
 
     private void saveToEdgeTable(
@@ -378,7 +397,11 @@ public class SqlGraphSQL {
     }
 
     public Iterable<Edge> selectAllEdges(SqlGraph graph, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-        final String sql = String.format("SELECT * FROM %s", configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME));
+        final String sql = String.format(
+                "SELECT * FROM %s ORDER BY %s",
+                configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME),
+                SqlEdge.COLUMN_ID
+        );
         return new EdgeResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
             @Override
             protected Connection getConnection() throws SQLException {
