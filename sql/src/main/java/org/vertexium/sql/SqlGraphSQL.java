@@ -4,6 +4,7 @@ import org.vertexium.*;
 import org.vertexium.mutation.ExistingElementMutationImpl;
 import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
+import org.vertexium.mutation.SetPropertyMetadata;
 import org.vertexium.property.MutableProperty;
 import org.vertexium.property.StreamingPropertyValue;
 import org.vertexium.search.IndexHint;
@@ -15,7 +16,9 @@ import org.vertexium.util.VertexiumLoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 
 public class SqlGraphSQL {
     private static final VertexiumLogger LOGGER = VertexiumLoggerFactory.getLogger(SqlGraphSQL.class);
@@ -300,6 +303,41 @@ public class SqlGraphSQL {
                 property.getVisibility(),
                 value
         );
+
+        insertElementPropertyMetadata(conn, elementType, elementId, property);
+    }
+
+    private void insertElementPropertyMetadata(Connection conn, ElementType elementType, String elementId, Property property) {
+        for (Metadata.Entry entry : property.getMetadata().entrySet()) {
+            insertElementPropertyMetadataRow(conn, elementType, elementId, property, entry);
+        }
+    }
+
+    private void insertElementPropertyMetadataRow(
+            Connection conn,
+            ElementType elementType,
+            String elementId,
+            Property property,
+            Metadata.Entry metadataEntry
+    ) {
+        PropertyMetadataValue metadataValue = new PropertyMetadataValue(
+                property.getKey(),
+                property.getName(),
+                property.getTimestamp(),
+                property.getVisibility(),
+                metadataEntry.getKey(),
+                metadataEntry.getValue(),
+                metadataEntry.getVisibility()
+        );
+        insertElementRow(
+                conn,
+                elementType,
+                elementId,
+                RowType.PROPERTY_METADATA,
+                property.getTimestamp(),
+                metadataEntry.getVisibility(),
+                metadataValue
+        );
     }
 
     private long insertStreamingPropertyValue(Connection conn, StreamingPropertyValue spv) {
@@ -402,7 +440,7 @@ public class SqlGraphSQL {
                 SqlVertex.COLUMN_TIMESTAMP,
                 whereClause
         );
-        
+
         return new VertexResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
             @Override
             protected Connection getConnection() throws SQLException {
@@ -475,7 +513,7 @@ public class SqlGraphSQL {
         // TODO m.put(AccumuloEdge.CF_OUT_VERTEX, new Text(edgeBuilder.getOutVertexId()), edgeColumnVisibility, timestamp, ElementMutationBuilder.EMPTY_VALUE);
         // TODO m.put(AccumuloEdge.CF_IN_VERTEX, new Text(edgeBuilder.getInVertexId()), edgeColumnVisibility, timestamp, ElementMutationBuilder.EMPTY_VALUE);
 
-        // TODO save properties
+        // TODO
 //        for (PropertyDeleteMutation propertyDeleteMutation : edgeBuilder.getPropertyDeletes()) {
 //            addPropertyDeleteToMutation(m, propertyDeleteMutation);
 //        }
@@ -524,7 +562,7 @@ public class SqlGraphSQL {
             // Order matters a lot here
 
             // metadata must be altered first because the lookup of a property can include visibility which will be altered by alterElementPropertyVisibilities
-            // TODO getGraph().alterPropertyMetadatas((AccumuloElement) mutation.getElement(), mutation.getSetPropertyMetadatas());
+            alterPropertyMetadatas(conn, (SqlElement) mutation.getElement(), mutation.getSetPropertyMetadatas());
 
             // altering properties comes next because alterElementVisibility may alter the vertex and we won't find it
             // TODO
@@ -568,6 +606,27 @@ public class SqlGraphSQL {
 //        }
         } catch (SQLException e) {
             throw new VertexiumException("Could not save existing element mutation", e);
+        }
+    }
+
+    void alterPropertyMetadatas(Connection conn, SqlElement element, List<SetPropertyMetadata> setPropertyMetadatas) {
+        if (setPropertyMetadatas.size() == 0) {
+            return;
+        }
+
+        List<Property> propertiesToSave = new ArrayList<>();
+        for (SetPropertyMetadata apm : setPropertyMetadatas) {
+            Property property = element.getProperty(apm.getPropertyKey(), apm.getPropertyName(), apm.getPropertyVisibility());
+            if (property == null) {
+                throw new VertexiumException(String.format("Could not find property %s:%s(%s)", apm.getPropertyKey(), apm.getPropertyName(), apm.getPropertyVisibility()));
+            }
+            property.getMetadata().add(apm.getMetadataName(), apm.getNewValue(), apm.getMetadataVisibility());
+            propertiesToSave.add(property);
+        }
+
+        ElementType elementType = ElementType.getTypeFromElement(element);
+        for (Property property : propertiesToSave) {
+            insertElementPropertyMetadata(conn, elementType, element.getId(), property);
         }
     }
 

@@ -131,12 +131,17 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
     }
 
     protected List<Property> getProperties(List<SqlGraphValueBase> values) {
-        Metadata propertyMetadata = new Metadata(); // TODO
-        Set<Visibility> propertyHiddenVisibilities = new HashSet<>(); // TODO
         ArrayList<Property> properties = new ArrayList<>();
         for (SqlGraphValueBase value : values) {
             if (value instanceof PropertyValueValue) {
                 PropertyValueValue v = (PropertyValueValue) value;
+                Metadata propertyMetadata = getPropertyMetadata(
+                        values,
+                        v.getPropertyKey(),
+                        v.getPropertyName(),
+                        v.getPropertyVisibility()
+                );
+                Set<Visibility> propertyHiddenVisibilities = new HashSet<>(); // TODO
                 Object propertyValue = v.getValue();
 
                 if (propertyValue instanceof SqlStreamingPropertyValueRef) {
@@ -159,6 +164,32 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
             }
         }
         return properties;
+    }
+
+    private Metadata getPropertyMetadata(
+            List<SqlGraphValueBase> values,
+            String propertyKey,
+            String propertyName,
+            Visibility propertyVisibility
+    ) {
+        Metadata metadata = new Metadata();
+        for (SqlGraphValueBase value : values) {
+            if (!(value instanceof PropertyMetadataValue)) {
+                continue;
+            }
+            PropertyMetadataValue pmv = (PropertyMetadataValue) value;
+            if (!propertyKey.equals(pmv.getPropertyKey())) {
+                continue;
+            }
+            if (!propertyName.equals(pmv.getPropertyName())) {
+                continue;
+            }
+            if (!propertyVisibility.equals(pmv.getPropertyVisibility())) {
+                continue;
+            }
+            metadata.add(pmv.getKey(), pmv.getValue(), pmv.getVisibility());
+        }
+        return metadata;
     }
 
     protected List<PropertyDeleteMutation> getPropertyDeleteMutation(List<SqlGraphValueBase> values) {

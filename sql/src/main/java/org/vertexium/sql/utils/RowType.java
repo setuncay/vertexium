@@ -5,8 +5,9 @@ import org.vertexium.VertexiumException;
 public enum RowType {
     SIGNAL(1),
     PROPERTY(2),
-    OUT_EDGE_INFO(3),
-    IN_EDGE_INFO(4);
+    PROPERTY_METADATA(3),
+    OUT_EDGE_INFO(4),
+    IN_EDGE_INFO(5);
 
     private final int value;
 
@@ -25,8 +26,10 @@ public enum RowType {
             case 2:
                 return PROPERTY;
             case 3:
-                return OUT_EDGE_INFO;
+                return PROPERTY_METADATA;
             case 4:
+                return OUT_EDGE_INFO;
+            case 5:
                 return IN_EDGE_INFO;
         }
         throw new VertexiumException("Unhandled row type: " + type);
