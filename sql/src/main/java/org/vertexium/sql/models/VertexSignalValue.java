@@ -8,4 +8,12 @@ public class VertexSignalValue extends ElementSignalValueBase {
     public VertexSignalValue(long timestamp, Visibility visibility) {
         super(timestamp, visibility);
     }
+
+    @Override
+    public String toString() {
+        return "VertexSignalValue{" +
+                "visibility=" + getVisibility() +
+                ", timestamp=" + getTimestamp() +
+                "}";
+    }
 }

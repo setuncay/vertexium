@@ -19,4 +19,12 @@ public class ElementSignalValueBase extends SqlGraphValueBase {
     public Visibility getVisibility() {
         return visibility;
     }
+
+    @Override
+    public String toString() {
+        return "ElementSignalValueBase{" +
+                "visibility=" + getVisibility() +
+                ", timestamp=" + getTimestamp() +
+                '}';
+    }
 }

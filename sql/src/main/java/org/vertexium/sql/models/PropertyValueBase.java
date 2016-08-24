@@ -36,4 +36,14 @@ public class PropertyValueBase extends SqlGraphValueBase {
     public Visibility getPropertyVisibility() {
         return propertyVisibility;
     }
+
+    @Override
+    public String toString() {
+        return "PropertyValueBase{" +
+                "propertyKey='" + getPropertyKey() + '\'' +
+                ", propertyName='" + getPropertyName() + '\'' +
+                ", propertyVisibility=" + getPropertyVisibility() +
+                ", propertyTimestamp=" + getPropertyTimestamp() +
+                '}';
+    }
 }

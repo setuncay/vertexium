@@ -29,6 +29,9 @@ public abstract class VertexResultSetIterable extends ElementResultSetIterable<V
     @Override
     protected Vertex createElement(String id, List<SqlGraphValueBase> values) {
         VertexSignalValue vertexSignalValue = (VertexSignalValue) getElementSignalValue(values);
+        if (vertexSignalValue == null) {
+            return null;
+        }
         List<Property> properties = getProperties(values);
         List<PropertyDeleteMutation> propertyDeleteMutations = getPropertyDeleteMutation(values);
         List<PropertySoftDeleteMutation> propertySoftDeleteMutations = getPropertySoftDeleteMutation(values);

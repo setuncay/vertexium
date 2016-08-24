@@ -20,4 +20,14 @@ public class PropertyValueValue extends PropertyValueBase {
     public Object getValue() {
         return value;
     }
+
+    @Override
+    public String toString() {
+        return "PropertyValueValue{" +
+                "propertyKey='" + getPropertyKey() + '\'' +
+                ", propertyName='" + getPropertyName() + '\'' +
+                ", propertyVisibility=" + getPropertyVisibility() +
+                ", propertyTimestamp=" + getPropertyTimestamp() +
+                '}';
+    }
 }

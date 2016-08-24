@@ -44,4 +44,15 @@ public class EdgeInfoValue extends SqlGraphValueBase {
     public String getOtherVertexId() {
         return otherVertexId;
     }
+
+    @Override
+    public String toString() {
+        return "EdgeInfoValue{" +
+                "edgeId='" + getEdgeId() + '\'' +
+                ", edgeLabel='" + getEdgeLabel() + '\'' +
+                ", edgeVisibility=" + getEdgeVisibility() +
+                ", otherVertexId='" + getOtherVertexId() + '\'' +
+                ", direction=" + getDirection() +
+                '}';
+    }
 }

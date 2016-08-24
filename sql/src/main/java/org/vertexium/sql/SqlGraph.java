@@ -147,9 +147,51 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
         };
     }
 
+    @Override
+    public EdgeBuilderByVertexId prepareEdge(
+            String edgeId,
+            String outVertexId,
+            String inVertexId,
+            String label,
+            Long timestamp,
+            Visibility visibility
+    ) {
+        if (outVertexId == null) {
+            throw new IllegalArgumentException("outVertexId is required");
+        }
+        if (inVertexId == null) {
+            throw new IllegalArgumentException("inVertexId is required");
+        }
+
+        if (edgeId == null) {
+            edgeId = getIdGenerator().nextId();
+        }
+        if (timestamp == null) {
+            timestamp = IncreasingTime.currentTimeMillis();
+        }
+        final long timestampLong = timestamp;
+
+        final String finalEdgeId = edgeId;
+        return new EdgeBuilderByVertexId(finalEdgeId, outVertexId, inVertexId, label, visibility) {
+            @Override
+            public Edge save(Authorizations authorizations) {
+                // This has to occur before createEdge since it will mutate the properties
+                getSqlGraphSql().saveEdgeBuilder(SqlGraph.this, this, timestampLong);
+
+                final SqlEdge edge = createEdge(SqlGraph.this, this, timestampLong, authorizations);
+                return savePreparedEdge(this, edge, authorizations);
+            }
+
+            @Override
+            protected void queueEvent(GraphEvent event) {
+                SqlGraph.this.queueEvent(event);
+            }
+        };
+    }
+
     private SqlEdge createEdge(
             SqlGraph graph,
-            EdgeBuilder edgeBuilder,
+            EdgeBuilderBase edgeBuilder,
             long timestamp,
             Authorizations authorizations
     ) {
@@ -187,11 +229,6 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
         }
 
         return edge;
-    }
-
-    @Override
-    public EdgeBuilderByVertexId prepareEdge(String edgeId, String outVertexId, String inVertexId, String label, Long timestamp, Visibility visibility) {
-        throw new VertexiumException("not implemented");
     }
 
     @Override

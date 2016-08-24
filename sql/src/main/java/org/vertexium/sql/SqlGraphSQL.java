@@ -406,7 +406,7 @@ public class SqlGraphSQL {
         };
     }
 
-    public void saveEdgeBuilder(SqlGraph sqlGraph, EdgeBuilder edgeBuilder, long timestamp) {
+    public void saveEdgeBuilder(SqlGraph sqlGraph, EdgeBuilderBase edgeBuilder, long timestamp) {
         Visibility visibility = edgeBuilder.getVisibility();
 
         try (Connection conn = SqlGraphSQL.this.getConnection()) {
@@ -447,7 +447,7 @@ public class SqlGraphSQL {
     private void saveToEdgeTable(
             SqlGraph sqlGraph,
             Connection conn,
-            EdgeBuilder edgeBuilder,
+            EdgeBuilderBase edgeBuilder,
             Visibility visibility,
             long timestamp
     ) throws SQLException {

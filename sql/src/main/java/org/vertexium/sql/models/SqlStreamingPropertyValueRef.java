@@ -29,4 +29,13 @@ public class SqlStreamingPropertyValueRef extends StreamingPropertyValueRef<SqlG
     public StreamingPropertyValue toStreamingPropertyValue(SqlGraph graph) {
         return graph.getSqlGraphSql().selectStreamingPropertyValue(spvRowId);
     }
+
+    @Override
+    public String toString() {
+        return "SqlStreamingPropertyValueRef{" +
+                "spvRowId=" + spvRowId +
+                ", valueType=" + valueType +
+                ", length=" + length +
+                '}';
+    }
 }

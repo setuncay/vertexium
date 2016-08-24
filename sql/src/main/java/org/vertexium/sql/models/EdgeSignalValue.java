@@ -26,4 +26,15 @@ public class EdgeSignalValue extends ElementSignalValueBase {
     public String getInVertexId() {
         return inVertexId;
     }
+
+    @Override
+    public String toString() {
+        return "EdgeSignalValue{" +
+                "visibility=" + getVisibility() +
+                ", timestamp=" + getTimestamp() +
+                ", edgeLabel='" + edgeLabel + '\'' +
+                ", outVertexId='" + outVertexId + '\'' +
+                ", inVertexId='" + inVertexId + '\'' +
+                '}';
+    }
 }
