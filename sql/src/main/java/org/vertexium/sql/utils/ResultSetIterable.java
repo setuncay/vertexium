@@ -51,6 +51,7 @@ public abstract class ResultSetIterable<T> implements Iterable<T>, Closeable {
         private final Connection conn;
         private final Statement stmt;
         private final ResultSet resultSet;
+        private final boolean isEmpty;
         private T next;
         private T current;
 
@@ -58,6 +59,11 @@ public abstract class ResultSetIterable<T> implements Iterable<T>, Closeable {
             this.conn = conn;
             this.stmt = stmt;
             this.resultSet = resultSet;
+            try {
+                this.isEmpty = !resultSet.isBeforeFirst();
+            } catch (SQLException e) {
+                throw new VertexiumException("could not determine if result set is empty", e);
+            }
         }
 
         @Override
@@ -87,6 +93,9 @@ public abstract class ResultSetIterable<T> implements Iterable<T>, Closeable {
 
         private void loadNext() {
             try {
+                if (this.isEmpty) {
+                    return;
+                }
                 if (this.next != null) {
                     return;
                 }

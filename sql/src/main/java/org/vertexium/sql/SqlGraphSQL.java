@@ -430,15 +430,15 @@ public class SqlGraphSQL {
         if (endTime == null) {
             whereClause = "";
         } else {
-            whereClause = String.format("WHERE %s < %d", SqlEdge.COLUMN_TIMESTAMP, endTime);
+            whereClause = String.format("WHERE %s <= %d", SqlEdge.COLUMN_TIMESTAMP, endTime);
         }
 
         final String sql = String.format(
-                "SELECT * FROM %s ORDER BY %s, %s %s",
+                "SELECT * FROM %s %s ORDER BY %s, %s",
                 configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME),
+                whereClause,
                 SqlVertex.COLUMN_ID,
-                SqlVertex.COLUMN_TIMESTAMP,
-                whereClause
+                SqlVertex.COLUMN_TIMESTAMP
         );
 
         return new VertexResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
@@ -530,15 +530,15 @@ public class SqlGraphSQL {
         if (endTime == null) {
             whereClause = "";
         } else {
-            whereClause = String.format("WHERE %s < %d", SqlEdge.COLUMN_TIMESTAMP, endTime);
+            whereClause = String.format("WHERE %s <= %d", SqlEdge.COLUMN_TIMESTAMP, endTime);
         }
 
         final String sql = String.format(
-                "SELECT * FROM %s ORDER BY %s, %s %s",
+                "SELECT * FROM %s %s ORDER BY %s, %s",
                 configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME),
+                whereClause,
                 SqlEdge.COLUMN_ID,
-                SqlEdge.COLUMN_TIMESTAMP,
-                whereClause
+                SqlEdge.COLUMN_TIMESTAMP
         );
         return new EdgeResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
             @Override
