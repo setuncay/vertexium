@@ -271,12 +271,17 @@ public abstract class GraphBase implements Graph {
 
     @Override
     public Edge getEdge(String edgeId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-        for (Edge edge : getEdges(fetchHints, endTime, authorizations)) {
-            if (edge.getId().equals(edgeId)) {
-                return edge;
+        Iterable<Edge> edges = getEdges(fetchHints, endTime, authorizations);
+        try {
+            for (Edge edge : edges) {
+                if (edge.getId().equals(edgeId)) {
+                    return edge;
+                }
             }
+            return null;
+        } finally {
+            CloseableUtils.closeQuietly(edges);
         }
-        return null;
     }
 
     @Override

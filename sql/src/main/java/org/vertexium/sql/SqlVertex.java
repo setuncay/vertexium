@@ -11,10 +11,7 @@ import org.vertexium.util.FilterIterable;
 import org.vertexium.util.JoinIterable;
 import org.vertexium.util.LookAheadIterable;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 public class SqlVertex extends SqlElement implements Vertex {
     private final List<EdgeInfo> outEdgeInfos;
@@ -201,12 +198,11 @@ public class SqlVertex extends SqlElement implements Vertex {
 
     @Override
     public Iterable<String> getEdgeLabels(Direction direction, Authorizations authorizations) {
-        return new ConvertingIterable<EdgeInfo, String>(getEdgeInfos(direction, authorizations)) {
-            @Override
-            protected String convert(EdgeInfo edgeInfo) {
-                return edgeInfo.getLabel();
-            }
-        };
+        Set<String> edgeLabels = new HashSet<>();
+        for (EdgeInfo edgeInfo : getEdgeInfos(direction, authorizations)) {
+            edgeLabels.add(edgeInfo.getLabel());
+        }
+        return edgeLabels;
     }
 
     @Override
