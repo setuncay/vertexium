@@ -229,17 +229,21 @@ public class SqlVertex extends SqlElement implements Vertex {
         return new FilterIterable<EdgeInfo>(getEdgeInfos(direction, authorizations)) {
             @Override
             protected boolean isIncluded(EdgeInfo edgeInfo) {
-                if (labels == null) {
-                    return true;
-                }
-                for (String label : labels) {
-                    if (edgeInfo.getLabel().equals(label)) {
-                        return true;
-                    }
-                }
-                return false;
+                return isEdgeInfoIncluded(edgeInfo, labels);
             }
         };
+    }
+
+    private boolean isEdgeInfoIncluded(EdgeInfo edgeInfo, String[] labels) {
+        if (labels == null) {
+            return true;
+        }
+        for (String label : labels) {
+            if (edgeInfo.getLabel().equals(label)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -249,7 +253,7 @@ public class SqlVertex extends SqlElement implements Vertex {
 
     @Override
     public Iterable<Vertex> getVertices(Direction direction, EnumSet<FetchHint> fetchHints, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        return getVertices(direction, (String[]) null, fetchHints, authorizations);
     }
 
     @Override
@@ -279,8 +283,23 @@ public class SqlVertex extends SqlElement implements Vertex {
     }
 
     @Override
-    public Iterable<String> getVertexIds(Direction direction, String[] labels, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+    public Iterable<String> getVertexIds(final Direction direction, final String[] labels, final Authorizations authorizations) {
+        return new LookAheadIterable<EdgeInfo, String>() {
+            @Override
+            protected boolean isIncluded(EdgeInfo edgeInfo, String vertexId) {
+                return isEdgeInfoIncluded(edgeInfo, labels);
+            }
+
+            @Override
+            protected String convert(EdgeInfo edgeInfo) {
+                return edgeInfo.getVertexId();
+            }
+
+            @Override
+            protected Iterator<EdgeInfo> createIterator() {
+                return getEdgeInfos(direction, labels, authorizations).iterator();
+            }
+        };
     }
 
     @Override

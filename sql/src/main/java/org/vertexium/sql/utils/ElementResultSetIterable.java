@@ -68,7 +68,6 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         List<SqlGraphValueBase> values = new ArrayList<>();
 
         // TODO fetchHints
-        // TODO endTime
 
         while (true) {
             id = rs.getString(SqlElement.COLUMN_ID);
