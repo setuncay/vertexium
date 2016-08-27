@@ -309,12 +309,12 @@ public class SqlVertex extends SqlElement implements Vertex {
 
     @Override
     public VertexQuery query(Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        return query(null, authorizations);
     }
 
     @Override
     public VertexQuery query(String queryString, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        return getGraph().getSearchIndex().queryVertex(getGraph(), this, queryString, authorizations);
     }
 
     @Override
