@@ -1,5 +1,7 @@
 package org.vertexium.sql.models;
 
+import org.vertexium.Metadata;
+import org.vertexium.Property;
 import org.vertexium.Visibility;
 
 public class PropertyMetadataValue extends PropertyValueBase {
@@ -21,6 +23,18 @@ public class PropertyMetadataValue extends PropertyValueBase {
         this.key = key;
         this.value = value;
         this.visibility = visibility;
+    }
+
+    public PropertyMetadataValue(Property property, Metadata.Entry metadataEntry) {
+        this(
+                property.getKey(),
+                property.getName(),
+                property.getTimestamp(),
+                property.getVisibility(),
+                metadataEntry.getKey(),
+                metadataEntry.getValue(),
+                metadataEntry.getVisibility()
+        );
     }
 
     public Object getValue() {

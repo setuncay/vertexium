@@ -349,4 +349,16 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
             }
         }
     }
+
+    public void softDeleteProperties(SqlElement element, Iterable<Property> properties, Authorizations authorizations) {
+        getSqlGraphSql().softDeleteProperties(element, properties);
+
+        for (Property property : properties) {
+            getSearchIndex().deleteProperty(this, element, property, authorizations);
+
+            if (hasEventListeners()) {
+                queueEvent(new SoftDeletePropertyEvent(this, element, property));
+            }
+        }
+    }
 }

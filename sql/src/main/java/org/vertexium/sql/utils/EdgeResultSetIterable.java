@@ -33,8 +33,9 @@ public abstract class EdgeResultSetIterable extends ElementResultSetIterable<Edg
         String newEdgeLabel = null;
         List<Property> properties = getProperties(values);
         List<PropertyDeleteMutation> propertyDeleteMutations = getPropertyDeleteMutation(values);
-        List<PropertySoftDeleteMutation> propertySoftDeleteMutations = getPropertySoftDeleteMutation(values);
+        List<PropertySoftDeleteMutation> propertySoftDeleteMutations = getPropertySoftDeleteMutation(values, properties);
         List<Visibility> hiddenVisibilities = getHiddenVisibilities(values);
+
         return new SqlEdge(
                 getGraph(),
                 id,

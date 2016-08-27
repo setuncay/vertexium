@@ -34,7 +34,7 @@ public abstract class VertexResultSetIterable extends ElementResultSetIterable<V
         }
         List<Property> properties = getProperties(values);
         List<PropertyDeleteMutation> propertyDeleteMutations = getPropertyDeleteMutation(values);
-        List<PropertySoftDeleteMutation> propertySoftDeleteMutations = getPropertySoftDeleteMutation(values);
+        List<PropertySoftDeleteMutation> propertySoftDeleteMutations = getPropertySoftDeleteMutation(values, properties);
         List<Visibility> hiddenVisibilities = getHiddenVisibilities(values);
         List<EdgeInfo> outEdgeInfos = getEdgeInfos(values, Direction.OUT);
         List<EdgeInfo> inEdgeInfos = getEdgeInfos(values, Direction.IN);

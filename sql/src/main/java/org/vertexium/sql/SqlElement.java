@@ -5,6 +5,9 @@ import org.vertexium.mutation.ExistingElementMutation;
 import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class SqlElement extends ElementBase {
     public static final String COLUMN_VALUE = "value";
     public static final String COLUMN_VISIBILITY = "visibility";
@@ -48,17 +51,28 @@ public class SqlElement extends ElementBase {
 
     @Override
     public void softDeleteProperty(String key, String name, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        Property property = super.softDeletePropertyInternal(key, name);
+        if (property != null) {
+            List<Property> properties = new ArrayList<>();
+            properties.add(property);
+            getGraph().softDeleteProperties(this, properties, authorizations);
+        }
     }
 
     @Override
     public void softDeleteProperty(String key, String name, Visibility visibility, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        Property property = super.softDeletePropertyInternal(key, name, visibility);
+        if (property != null) {
+            List<Property> properties = new ArrayList<>();
+            properties.add(property);
+            getGraph().softDeleteProperties(this, properties, authorizations);
+        }
     }
 
     @Override
     public void softDeleteProperties(String name, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        Iterable<Property> properties = super.removePropertyInternal(name);
+        getGraph().softDeleteProperties(this, properties, authorizations);
     }
 
     @Override

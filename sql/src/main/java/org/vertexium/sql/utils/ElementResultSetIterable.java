@@ -1,6 +1,7 @@
 package org.vertexium.sql.utils;
 
 import org.vertexium.*;
+import org.vertexium.mutation.KeyNameVisibilityPropertySoftDeleteMutation;
 import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
 import org.vertexium.property.MutablePropertyImpl;
@@ -197,9 +198,39 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         return new ArrayList<>();
     }
 
-    protected List<PropertySoftDeleteMutation> getPropertySoftDeleteMutation(List<SqlGraphValueBase> values) {
-        // TODO
-        return new ArrayList<>();
+    protected List<PropertySoftDeleteMutation> getPropertySoftDeleteMutation(
+            List<SqlGraphValueBase> values,
+            List<Property> properties
+    ) {
+        List<PropertySoftDeleteMutation> results = new ArrayList<>();
+        for (SqlGraphValueBase value : values) {
+            if (value instanceof PropertySoftDeleteValue) {
+                PropertySoftDeleteValue psdv = (PropertySoftDeleteValue) value;
+                if (isPropertyDefinedAfter(properties, psdv)) {
+                    continue;
+                }
+                PropertySoftDeleteMutation psdm = new KeyNameVisibilityPropertySoftDeleteMutation(
+                        psdv.getPropertyKey(),
+                        psdv.getPropertyName(),
+                        psdv.getPropertyVisibility()
+                );
+                results.add(psdm);
+            }
+        }
+        return results;
+    }
+
+    private boolean isPropertyDefinedAfter(List<Property> properties, PropertySoftDeleteValue psdv) {
+        for (Property property : properties) {
+            if (property.getKey().equals(psdv.getPropertyKey())
+                    && property.getName().equals(psdv.getPropertyName())
+                    && property.getVisibility().equals(psdv.getPropertyVisibility())) {
+                if (property.getTimestamp() > psdv.getPropertyTimestamp()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     protected List<Visibility> getHiddenVisibilities(List<SqlGraphValueBase> values) {

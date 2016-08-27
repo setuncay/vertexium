@@ -259,6 +259,10 @@ public abstract class ElementBase implements Element {
             Iterable<PropertyDeleteMutation> propertyDeleteMutations,
             Iterable<PropertySoftDeleteMutation> propertySoftDeleteMutations
     ) {
+        for (Property property : properties) {
+            addPropertyInternal(property);
+        }
+
         if (propertyDeleteMutations != null) {
             this.propertyDeleteMutations = new ConcurrentSkipListSet<>();
             for (PropertyDeleteMutation propertyDeleteMutation : propertyDeleteMutations) {
@@ -270,6 +274,7 @@ public abstract class ElementBase implements Element {
                 this.propertyDeleteMutations.add(propertyDeleteMutation);
             }
         }
+
         if (propertySoftDeleteMutations != null) {
             this.propertySoftDeleteMutations = new ConcurrentSkipListSet<>();
             for (PropertySoftDeleteMutation propertySoftDeleteMutation : propertySoftDeleteMutations) {
@@ -280,10 +285,6 @@ public abstract class ElementBase implements Element {
                 );
                 this.propertySoftDeleteMutations.add(propertySoftDeleteMutation);
             }
-        }
-
-        for (Property property : properties) {
-            addPropertyInternal(property);
         }
     }
 

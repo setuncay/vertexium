@@ -10,6 +10,7 @@ import org.vertexium.property.StreamingPropertyValue;
 import org.vertexium.search.IndexHint;
 import org.vertexium.sql.models.*;
 import org.vertexium.sql.utils.*;
+import org.vertexium.util.IncreasingTime;
 import org.vertexium.util.StreamUtils;
 import org.vertexium.util.VertexiumLogger;
 import org.vertexium.util.VertexiumLoggerFactory;
@@ -320,15 +321,7 @@ public class SqlGraphSQL {
             Property property,
             Metadata.Entry metadataEntry
     ) {
-        PropertyMetadataValue metadataValue = new PropertyMetadataValue(
-                property.getKey(),
-                property.getName(),
-                property.getTimestamp(),
-                property.getVisibility(),
-                metadataEntry.getKey(),
-                metadataEntry.getValue(),
-                metadataEntry.getVisibility()
-        );
+        PropertyMetadataValue metadataValue = new PropertyMetadataValue(property, metadataEntry);
         insertElementRow(
                 conn,
                 elementType,
@@ -661,5 +654,19 @@ public class SqlGraphSQL {
                 indexHint,
                 authorizations
         );
+    }
+
+    public void softDeleteProperties(SqlElement element, Iterable<Property> properties) {
+        long timestamp = IncreasingTime.currentTimeMillis();
+        ElementType elementType = ElementType.getTypeFromElement(element);
+        try (Connection conn = getConnection()) {
+            for (Property property : properties) {
+                Visibility visibility = property.getVisibility();
+                SqlGraphValueBase value = new PropertySoftDeleteValue(property);
+                insertElementRow(conn, elementType, element.getId(), RowType.SOFT_DELETE_PROPERTY, timestamp, visibility, value);
+            }
+        } catch (SQLException ex) {
+            throw new VertexiumException("Could not soft delete properties", ex);
+        }
     }
 }
