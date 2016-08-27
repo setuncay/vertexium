@@ -5,7 +5,7 @@ import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
 import org.vertexium.sql.SqlEdge;
 import org.vertexium.sql.SqlGraph;
-import org.vertexium.sql.SqlGraphSQL;
+import org.vertexium.sql.SqlGraphSql;
 import org.vertexium.sql.models.EdgeSignalValue;
 import org.vertexium.sql.models.SqlGraphValueBase;
 
@@ -15,14 +15,14 @@ import java.util.List;
 
 public abstract class EdgeResultSetIterable extends ElementResultSetIterable<Edge> {
     public EdgeResultSetIterable(
-            SqlGraphSQL sqlGraphSQL,
+            SqlGraphSql sqlGraphSql,
             SqlGraph graph,
             EnumSet<FetchHint> fetchHints,
             Long endTime,
             VertexiumSerializer serializer,
             Authorizations authorizations
     ) {
-        super(sqlGraphSQL, graph, fetchHints, endTime, serializer, authorizations);
+        super(sqlGraphSql, graph, fetchHints, endTime, serializer, authorizations);
     }
 
     @Override

@@ -10,7 +10,7 @@ import org.vertexium.security.VisibilityEvaluator;
 import org.vertexium.security.VisibilityParseException;
 import org.vertexium.sql.SqlElement;
 import org.vertexium.sql.SqlGraph;
-import org.vertexium.sql.SqlGraphSQL;
+import org.vertexium.sql.SqlGraphSql;
 import org.vertexium.sql.models.*;
 import org.vertexium.util.VertexiumLogger;
 import org.vertexium.util.VertexiumLoggerFactory;
@@ -21,7 +21,7 @@ import java.util.*;
 
 public abstract class ElementResultSetIterable<T extends Element> extends SqlGraphSqlResultSetIterable<T> {
     private static final VertexiumLogger LOGGER = VertexiumLoggerFactory.getLogger(ElementResultSetIterable.class);
-    private final SqlGraphSQL sqlGraphSQL;
+    private final SqlGraphSql sqlGraphSql;
     private final SqlGraph graph;
     private final EnumSet<FetchHint> fetchHints;
     private final Long endTime;
@@ -30,14 +30,14 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
     private final VisibilityEvaluator visibilityEvaluator;
 
     public ElementResultSetIterable(
-            SqlGraphSQL sqlGraphSQL,
+            SqlGraphSql sqlGraphSql,
             SqlGraph graph,
             EnumSet<FetchHint> fetchHints,
             Long endTime,
             VertexiumSerializer serializer,
             Authorizations authorizations
     ) {
-        this.sqlGraphSQL = sqlGraphSQL;
+        this.sqlGraphSql = sqlGraphSql;
         this.graph = graph;
         this.fetchHints = fetchHints;
         this.endTime = endTime;
@@ -159,7 +159,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
                         v.getPropertyName(),
                         propertyValue,
                         propertyMetadata,
-                        v.getPropertyTimestamp(),
+                        v.getTimestamp(),
                         propertyHiddenVisibilities,
                         v.getPropertyVisibility()
                 );

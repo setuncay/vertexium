@@ -12,7 +12,6 @@ public class PropertyVisibleValue extends PropertyValueBase {
         this(
                 property.getKey(),
                 property.getName(),
-                property.getTimestamp(),
                 property.getVisibility(),
                 timestamp,
                 hiddenVisibility
@@ -22,12 +21,11 @@ public class PropertyVisibleValue extends PropertyValueBase {
     public PropertyVisibleValue(
             String propertyKey,
             String propertyName,
-            long propertyTimestamp,
             Visibility propertyVisibility,
             long timestamp,
             Visibility hiddenVisibility
     ) {
-        super(propertyKey, propertyName, propertyTimestamp, propertyVisibility);
+        super(propertyKey, propertyName, propertyVisibility);
         this.timestamp = timestamp;
         this.hiddenVisibility = hiddenVisibility;
     }
@@ -46,7 +44,6 @@ public class PropertyVisibleValue extends PropertyValueBase {
                 "propertyKey='" + getPropertyKey() + '\'' +
                 ", propertyName='" + getPropertyName() + '\'' +
                 ", propertyVisibility=" + getPropertyVisibility() +
-                ", propertyTimestamp=" + getPropertyTimestamp() +
                 ", timestamp=" + getTimestamp() +
                 ", hiddenVisibility=" + getHiddenVisibility() +
                 "}";

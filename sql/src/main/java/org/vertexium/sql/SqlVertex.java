@@ -322,7 +322,7 @@ public class SqlVertex extends SqlElement implements Vertex {
         return new ExistingElementMutationImpl<Vertex>(this) {
             @Override
             public Vertex save(Authorizations authorizations) {
-                getGraph().getSqlGraphSql().saveExistingElementMutation(getGraph(), this, authorizations);
+                getGraph().saveExistingElementMutation(this, authorizations);
                 return getElement();
             }
         };

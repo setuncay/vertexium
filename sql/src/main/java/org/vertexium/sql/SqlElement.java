@@ -82,7 +82,7 @@ public class SqlElement extends ElementBase {
         return new ExistingElementMutationImpl<TElement>(elem) {
             @Override
             public TElement save(Authorizations authorizations) {
-                getGraph().getSqlGraphSql().saveExistingElementMutation(getGraph(), this, authorizations);
+                getGraph().saveExistingElementMutation(this, authorizations);
                 return getElement();
             }
         };
@@ -90,12 +90,12 @@ public class SqlElement extends ElementBase {
 
     @Override
     public void markPropertyHidden(Property property, Long timestamp, Visibility visibility, Authorizations authorizations) {
-        getGraph().markPropertyHidden(this, property, timestamp, visibility, authorizations);
+        getGraph().markPropertyHidden(this, property, timestamp, visibility);
     }
 
     @Override
     public void markPropertyVisible(Property property, Long timestamp, Visibility visibility, Authorizations authorizations) {
-        getGraph().markPropertyVisible(this, property, timestamp, visibility, authorizations);
+        getGraph().markPropertyVisible(this, property, timestamp, visibility);
     }
 
     @Override
@@ -115,5 +115,17 @@ public class SqlElement extends ElementBase {
     @Override
     public SqlGraph getGraph() {
         return (SqlGraph) super.getGraph();
+    }
+
+    @Override
+    public Iterable<HistoricalPropertyValue> getHistoricalPropertyValues(
+            String key,
+            String name,
+            Visibility visibility,
+            Long startTime,
+            Long endTime,
+            Authorizations authorizations
+    ) {
+        return getGraph().getHistoricalPropertyValues(this, key, name, visibility, startTime, endTime, authorizations);
     }
 }

@@ -11,15 +11,14 @@ public class PropertySoftDeleteValue extends PropertyValueBase {
         this(
                 property.getKey(),
                 property.getName(),
-                property.getTimestamp(),
                 property.getVisibility(),
                 timestamp
         );
     }
 
 
-    public PropertySoftDeleteValue(String key, String name, long propertyTimestamp, Visibility visibility, long timestamp) {
-        super(key, name, propertyTimestamp, visibility);
+    public PropertySoftDeleteValue(String key, String name, Visibility visibility, long timestamp) {
+        super(key, name, visibility);
         this.timestamp = timestamp;
     }
 
@@ -33,7 +32,6 @@ public class PropertySoftDeleteValue extends PropertyValueBase {
                 "propertyKey='" + getPropertyKey() + '\'' +
                 ", propertyName='" + getPropertyName() + '\'' +
                 ", propertyVisibility=" + getPropertyVisibility() +
-                ", propertyTimestamp=" + getPropertyTimestamp() +
                 ", timestamp=" + getTimestamp() +
                 "}";
     }
