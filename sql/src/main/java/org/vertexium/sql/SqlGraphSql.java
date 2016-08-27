@@ -32,6 +32,8 @@ public interface SqlGraphSql {
 
     Iterable<Vertex> selectAllVertices(SqlGraph graph, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations);
 
+    Vertex selectVertex(SqlGraph graph, String vertexId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations);
+
     Iterable<GraphMetadataEntry> metadataSelectAll();
 
     void metadataSetMetadata(String key, Object value);

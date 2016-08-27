@@ -20,6 +20,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
+import static org.vertexium.util.Preconditions.checkNotNull;
+
 public class SqlGraph extends GraphBaseWithSearchIndex {
     private final SqlGraphSql sqlGraphSql;
     private final GraphMetadataStore metadataStore;
@@ -193,6 +195,11 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
     public Iterable<Vertex> getVertices(EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
         return getSqlGraphSql().selectAllVertices(this, fetchHints, endTime, authorizations);
     }
+
+//    @Override
+//    public Vertex getVertex(String vertexId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+//        return getSqlGraphSql().selectVertex(this, vertexId, fetchHints, endTime, authorizations);
+//    }
 
     @Override
     public EdgeBuilder prepareEdge(
@@ -371,7 +378,31 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public void markVertexHidden(Vertex vertex, Visibility visibility, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        checkNotNull(vertex, "vertex cannot be null");
+        long timestamp = IncreasingTime.currentTimeMillis();
+
+        // Delete all edges that this vertex participates.
+        for (Edge edge : vertex.getEdges(Direction.BOTH, authorizations)) {
+            markEdgeHidden(edge, visibility, authorizations);
+        }
+
+        try (Connection conn = getSqlGraphSql().getConnection()) {
+            getSqlGraphSql().insertElementRow(
+                    conn,
+                    ElementType.VERTEX,
+                    vertex.getId(),
+                    RowType.HIDDEN_ELEMENT,
+                    timestamp,
+                    visibility,
+                    new ElementHiddenValue()
+            );
+        } catch (SQLException ex) {
+            throw new VertexiumException("Could not mark vertex hidden: " + vertex.getId(), ex);
+        }
+
+        if (hasEventListeners()) {
+            queueEvent(new MarkHiddenVertexEvent(this, vertex));
+        }
     }
 
     @Override
@@ -381,7 +412,39 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public void markEdgeHidden(Edge edge, Visibility visibility, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        checkNotNull(edge);
+
+        Vertex out = edge.getVertex(Direction.OUT, authorizations);
+        if (out == null) {
+            throw new VertexiumException(String.format("Unable to mark edge hidden %s, can't find out vertex %s", edge.getId(), edge.getVertexId(Direction.OUT)));
+        }
+        Vertex in = edge.getVertex(Direction.IN, authorizations);
+        if (in == null) {
+            throw new VertexiumException(String.format("Unable to mark edge hidden %s, can't find in vertex %s", edge.getId(), edge.getVertexId(Direction.IN)));
+        }
+
+        // TODO
+//        Mutation outMutation = new Mutation(out.getId());
+//        outMutation.put(AccumuloVertex.CF_OUT_EDGE_HIDDEN, new Text(edge.getId()), columnVisibility, AccumuloElement.HIDDEN_VALUE);
+//
+//        Mutation inMutation = new Mutation(in.getId());
+//        inMutation.put(AccumuloVertex.CF_IN_EDGE_HIDDEN, new Text(edge.getId()), columnVisibility, AccumuloElement.HIDDEN_VALUE);
+//
+//        addMutations(getVerticesWriter(), outMutation, inMutation);
+//
+//        // Delete everything else related to edge.
+//        addMutations(getEdgesWriter(), getMarkHiddenRowMutation(edge.getId(), columnVisibility));
+//
+//        if (out instanceof AccumuloVertex) {
+//            ((AccumuloVertex) out).removeOutEdge(edge);
+//        }
+//        if (in instanceof AccumuloVertex) {
+//            ((AccumuloVertex) in).removeInEdge(edge);
+//        }
+
+        if (hasEventListeners()) {
+            queueEvent(new MarkHiddenEdgeEvent(this, edge));
+        }
     }
 
     @Override

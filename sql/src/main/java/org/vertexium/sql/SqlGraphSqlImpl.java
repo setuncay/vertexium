@@ -4,11 +4,13 @@ import org.vertexium.*;
 import org.vertexium.property.StreamingPropertyValue;
 import org.vertexium.sql.models.SqlGraphValueBase;
 import org.vertexium.sql.utils.*;
+import org.vertexium.util.IterableUtils;
 import org.vertexium.util.StreamUtils;
 import org.vertexium.util.VertexiumLogger;
 import org.vertexium.util.VertexiumLoggerFactory;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.sql.*;
 import java.util.EnumSet;
 
@@ -330,6 +332,43 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
                 return conn.prepareStatement(sql);
             }
         };
+    }
+
+    @Override
+    public Vertex selectVertex(SqlGraph graph, final String vertexId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+        String timestampClause;
+        if (endTime == null) {
+            timestampClause = "";
+        } else {
+            timestampClause = String.format("WHERE %s <= %d", SqlEdge.COLUMN_TIMESTAMP, endTime);
+        }
+
+        final String sql = String.format(
+                "SELECT * FROM %s WHERE %s=? %s ORDER BY %s, %s",
+                configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME),
+                SqlVertex.COLUMN_ID,
+                timestampClause,
+                SqlVertex.COLUMN_ID,
+                SqlVertex.COLUMN_TIMESTAMP
+        );
+
+        try (VertexResultSetIterable it = new VertexResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
+            @Override
+            protected Connection getConnection() throws SQLException {
+                return SqlGraphSqlImpl.this.getConnection();
+            }
+
+            @Override
+            protected PreparedStatement getStatement(Connection conn) throws SQLException {
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                stmt.setString(1, vertexId);
+                return stmt;
+            }
+        }) {
+            return IterableUtils.singleOrDefault(it, null);
+        } catch (IOException e) {
+            throw new VertexiumException("Could not close iterator", e);
+        }
     }
 
     @Override

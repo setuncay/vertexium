@@ -65,12 +65,18 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
     }
 
     private T readElement(ResultSet rs) throws SQLException {
-        String id;
+        boolean first = true;
+        String id = null;
         List<SqlGraphValueBase> values = new ArrayList<>();
 
         // TODO fetchHints
 
         while (true) {
+            if (!first && !rs.getString(SqlElement.COLUMN_ID).equals(id)) {
+                break;
+            }
+            first = false;
+
             id = rs.getString(SqlElement.COLUMN_ID);
             String visibilityString = rs.getString(SqlElement.COLUMN_VISIBILITY);
             try {
@@ -99,10 +105,6 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
             if (!rs.next()) {
                 break;
             }
-
-            if (!id.equals(rs.getString(SqlElement.COLUMN_ID))) {
-                break;
-            }
         }
 
         return createElement(id, values);
@@ -123,12 +125,19 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
     }
 
     protected ElementSignalValueBase getElementSignalValue(List<SqlGraphValueBase> values) {
+        ElementSignalValueBase lastElementSignalValueBase = null;
+        ElementSignalValueBase result = null;
         for (SqlGraphValueBase value : values) {
             if (value instanceof ElementSignalValueBase) {
-                return (ElementSignalValueBase) value;
+                lastElementSignalValueBase = (ElementSignalValueBase) value;
+                result = lastElementSignalValueBase;
+            } else if (value instanceof ElementHiddenValue) {
+                result = null;
+            } else if (value instanceof ElementVisibleValue) {
+                result = lastElementSignalValueBase;
             }
         }
-        return null;
+        return result;
     }
 
     protected Collection<Property> getProperties(List<SqlGraphValueBase> values) {
