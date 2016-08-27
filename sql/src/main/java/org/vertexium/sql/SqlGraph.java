@@ -1,10 +1,7 @@
 package org.vertexium.sql;
 
 import org.vertexium.*;
-import org.vertexium.event.AddPropertyEvent;
-import org.vertexium.event.DeletePropertyEvent;
-import org.vertexium.event.GraphEvent;
-import org.vertexium.event.SoftDeletePropertyEvent;
+import org.vertexium.event.*;
 import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
 import org.vertexium.search.IndexHint;
@@ -355,8 +352,12 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
         }
     }
 
-    public void softDeleteProperties(SqlElement element, Iterable<Property> properties, Authorizations authorizations) {
-        getSqlGraphSql().softDeleteProperties(element, properties);
+    public void softDeleteProperties(SqlElement element, Iterable<Property> properties, Long timestamp, Authorizations authorizations) {
+        if (timestamp == null) {
+            timestamp = IncreasingTime.currentTimeMillis();
+        }
+
+        getSqlGraphSql().softDeleteProperties(element, properties, timestamp);
 
         for (Property property : properties) {
             getSearchIndex().deleteProperty(this, element, property, authorizations);
@@ -364,6 +365,42 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
             if (hasEventListeners()) {
                 queueEvent(new SoftDeletePropertyEvent(this, element, property));
             }
+        }
+    }
+
+    public void markPropertyHidden(
+            SqlElement element,
+            Property property,
+            Long timestamp,
+            Visibility hiddenVisibility,
+            Authorizations authorizations
+    ) {
+        if (timestamp == null) {
+            timestamp = IncreasingTime.currentTimeMillis();
+        }
+
+        getSqlGraphSql().markPropertyHidden(element, property, timestamp, hiddenVisibility);
+
+        if (hasEventListeners()) {
+            fireGraphEvent(new MarkHiddenPropertyEvent(this, element, property, hiddenVisibility));
+        }
+    }
+
+    public void markPropertyVisible(
+            SqlElement element,
+            Property property,
+            Long timestamp,
+            Visibility hiddenVisibility,
+            Authorizations authorizations
+    ) {
+        if (timestamp == null) {
+            timestamp = IncreasingTime.currentTimeMillis();
+        }
+
+        getSqlGraphSql().markPropertyVisible(element, property, timestamp, hiddenVisibility);
+
+        if (hasEventListeners()) {
+            fireGraphEvent(new MarkVisiblePropertyEvent(this, element, property, hiddenVisibility));
         }
     }
 }

@@ -8,7 +8,9 @@ public enum RowType {
     PROPERTY_METADATA(3),
     OUT_EDGE_INFO(4),
     IN_EDGE_INFO(5),
-    SOFT_DELETE_PROPERTY(6);
+    SOFT_DELETE_PROPERTY(6),
+    HIDDEN_PROPERTY(7),
+    VISIBLE_PROPERTY(8);
 
     private final int value;
 
@@ -34,6 +36,10 @@ public enum RowType {
                 return IN_EDGE_INFO;
             case 6:
                 return SOFT_DELETE_PROPERTY;
+            case 7:
+                return HIDDEN_PROPERTY;
+            case 9:
+                return VISIBLE_PROPERTY;
         }
         throw new VertexiumException("Unhandled row type: " + type);
     }

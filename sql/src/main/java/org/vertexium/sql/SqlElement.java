@@ -2,6 +2,7 @@ package org.vertexium.sql;
 
 import org.vertexium.*;
 import org.vertexium.mutation.ExistingElementMutation;
+import org.vertexium.mutation.ExistingElementMutationImpl;
 import org.vertexium.mutation.PropertyDeleteMutation;
 import org.vertexium.mutation.PropertySoftDeleteMutation;
 
@@ -55,7 +56,7 @@ public class SqlElement extends ElementBase {
         if (property != null) {
             List<Property> properties = new ArrayList<>();
             properties.add(property);
-            getGraph().softDeleteProperties(this, properties, authorizations);
+            getGraph().softDeleteProperties(this, properties, null, authorizations);
         }
     }
 
@@ -65,29 +66,36 @@ public class SqlElement extends ElementBase {
         if (property != null) {
             List<Property> properties = new ArrayList<>();
             properties.add(property);
-            getGraph().softDeleteProperties(this, properties, authorizations);
+            getGraph().softDeleteProperties(this, properties, null, authorizations);
         }
     }
 
     @Override
     public void softDeleteProperties(String name, Authorizations authorizations) {
         Iterable<Property> properties = super.removePropertyInternal(name);
-        getGraph().softDeleteProperties(this, properties, authorizations);
+        getGraph().softDeleteProperties(this, properties, null, authorizations);
     }
 
     @Override
-    public <T extends Element> ExistingElementMutation<T> prepareMutation() {
-        throw new VertexiumException("not implemented");
+    public <TElement extends Element> ExistingElementMutation<TElement> prepareMutation() {
+        TElement elem = (TElement) this;
+        return new ExistingElementMutationImpl<TElement>(elem) {
+            @Override
+            public TElement save(Authorizations authorizations) {
+                getGraph().getSqlGraphSql().saveExistingElementMutation(getGraph(), this, authorizations);
+                return getElement();
+            }
+        };
     }
 
     @Override
     public void markPropertyHidden(Property property, Long timestamp, Visibility visibility, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        getGraph().markPropertyHidden(this, property, timestamp, visibility, authorizations);
     }
 
     @Override
     public void markPropertyVisible(Property property, Long timestamp, Visibility visibility, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        getGraph().markPropertyVisible(this, property, timestamp, visibility, authorizations);
     }
 
     @Override

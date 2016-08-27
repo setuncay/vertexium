@@ -10,7 +10,6 @@ import org.vertexium.property.StreamingPropertyValue;
 import org.vertexium.search.IndexHint;
 import org.vertexium.sql.models.*;
 import org.vertexium.sql.utils.*;
-import org.vertexium.util.IncreasingTime;
 import org.vertexium.util.StreamUtils;
 import org.vertexium.util.VertexiumLogger;
 import org.vertexium.util.VertexiumLoggerFactory;
@@ -546,9 +545,9 @@ public class SqlGraphSQL {
         };
     }
 
-    public void saveExistingElementMutation(
+    public <TElement extends Element> void saveExistingElementMutation(
             SqlGraph graph,
-            ExistingElementMutationImpl<Vertex> mutation,
+            ExistingElementMutationImpl<TElement> mutation,
             Authorizations authorizations
     ) {
         try (Connection conn = getConnection()) {
@@ -656,15 +655,34 @@ public class SqlGraphSQL {
         );
     }
 
-    public void softDeleteProperties(SqlElement element, Iterable<Property> properties) {
-        long timestamp = IncreasingTime.currentTimeMillis();
+    public void softDeleteProperties(SqlElement element, Iterable<Property> properties, long timestamp) {
         ElementType elementType = ElementType.getTypeFromElement(element);
         try (Connection conn = getConnection()) {
             for (Property property : properties) {
                 Visibility visibility = property.getVisibility();
-                SqlGraphValueBase value = new PropertySoftDeleteValue(property);
+                SqlGraphValueBase value = new PropertySoftDeleteValue(property, timestamp);
                 insertElementRow(conn, elementType, element.getId(), RowType.SOFT_DELETE_PROPERTY, timestamp, visibility, value);
             }
+        } catch (SQLException ex) {
+            throw new VertexiumException("Could not soft delete properties", ex);
+        }
+    }
+
+    public void markPropertyHidden(SqlElement element, Property property, long timestamp, Visibility hiddenVisibility) {
+        ElementType elementType = ElementType.getTypeFromElement(element);
+        try (Connection conn = getConnection()) {
+            PropertyHiddenValue value = new PropertyHiddenValue(property, timestamp, hiddenVisibility);
+            insertElementRow(conn, elementType, element.getId(), RowType.HIDDEN_PROPERTY, timestamp, hiddenVisibility, value);
+        } catch (SQLException ex) {
+            throw new VertexiumException("Could not soft delete properties", ex);
+        }
+    }
+
+    public void markPropertyVisible(SqlElement element, Property property, Long timestamp, Visibility hiddenVisibility) {
+        ElementType elementType = ElementType.getTypeFromElement(element);
+        try (Connection conn = getConnection()) {
+            PropertyVisibleValue value = new PropertyVisibleValue(property, timestamp, hiddenVisibility);
+            insertElementRow(conn, elementType, element.getId(), RowType.HIDDEN_PROPERTY, timestamp, hiddenVisibility, value);
         } catch (SQLException ex) {
             throw new VertexiumException("Could not soft delete properties", ex);
         }

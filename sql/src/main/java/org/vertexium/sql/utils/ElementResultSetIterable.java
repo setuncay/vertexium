@@ -131,8 +131,9 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         return null;
     }
 
-    protected List<Property> getProperties(List<SqlGraphValueBase> values) {
-        ArrayList<Property> properties = new ArrayList<>();
+    protected Collection<Property> getProperties(List<SqlGraphValueBase> values) {
+        Map<PropertyMapKey, Property> properties = new HashMap<>();
+        Set<PropertyMapKey> propertyMapKeysToRemove = new HashSet<>();
         for (SqlGraphValueBase value : values) {
             if (value instanceof PropertyValueValue) {
                 PropertyValueValue v = (PropertyValueValue) value;
@@ -142,7 +143,8 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
                         v.getPropertyName(),
                         v.getPropertyVisibility()
                 );
-                Set<Visibility> propertyHiddenVisibilities = new HashSet<>(); // TODO
+
+                Set<Visibility> propertyHiddenVisibilities = null;
                 Object propertyValue = v.getValue();
 
                 if (propertyValue instanceof SqlStreamingPropertyValueRef) {
@@ -161,10 +163,43 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
                         propertyHiddenVisibilities,
                         v.getPropertyVisibility()
                 );
-                properties.add(property);
+                properties.put(new PropertyMapKey(property), property);
+            } else if (value instanceof PropertyHiddenValue) {
+                PropertyHiddenValue phv = (PropertyHiddenValue) value;
+                applyHiddenToProperty(properties, phv, propertyMapKeysToRemove);
+            } else if (value instanceof PropertyVisibleValue) {
+                PropertyVisibleValue pvv = (PropertyVisibleValue) value;
+                applyVisibleToProperty(properties, pvv, propertyMapKeysToRemove);
             }
         }
-        return properties;
+
+        for (PropertyMapKey propertyMapKey : propertyMapKeysToRemove) {
+            properties.remove(propertyMapKey);
+        }
+
+        return properties.values();
+    }
+
+    private void applyHiddenToProperty(Map<PropertyMapKey, Property> properties, PropertyHiddenValue phv, Set<PropertyMapKey> propertyMapKeysToRemove) {
+        boolean includeHidden = fetchHints.contains(FetchHint.INCLUDE_HIDDEN);
+        PropertyMapKey propertyMapKey = new PropertyMapKey(phv);
+        if (includeHidden) {
+            Property property = properties.get(propertyMapKey);
+            if (property != null) {
+                ((MutablePropertyImpl) property).addHiddenVisibility(phv.getHiddenVisibility());
+            }
+        } else {
+            propertyMapKeysToRemove.add(propertyMapKey);
+        }
+    }
+
+    private void applyVisibleToProperty(Map<PropertyMapKey, Property> properties, PropertyVisibleValue pvv, Set<PropertyMapKey> propertyMapKeysToRemove) {
+        PropertyMapKey propertyMapKey = new PropertyMapKey(pvv);
+        Property property = properties.get(propertyMapKey);
+        if (property != null) {
+            ((MutablePropertyImpl) property).removeHiddenVisibility(pvv.getHiddenVisibility());
+        }
+        propertyMapKeysToRemove.remove(propertyMapKey);
     }
 
     private Metadata getPropertyMetadata(
@@ -200,7 +235,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
 
     protected List<PropertySoftDeleteMutation> getPropertySoftDeleteMutation(
             List<SqlGraphValueBase> values,
-            List<Property> properties
+            Collection<Property> properties
     ) {
         List<PropertySoftDeleteMutation> results = new ArrayList<>();
         for (SqlGraphValueBase value : values) {
@@ -220,12 +255,12 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         return results;
     }
 
-    private boolean isPropertyDefinedAfter(List<Property> properties, PropertySoftDeleteValue psdv) {
+    private boolean isPropertyDefinedAfter(Collection<Property> properties, PropertySoftDeleteValue psdv) {
         for (Property property : properties) {
             if (property.getKey().equals(psdv.getPropertyKey())
                     && property.getName().equals(psdv.getPropertyName())
                     && property.getVisibility().equals(psdv.getPropertyVisibility())) {
-                if (property.getTimestamp() > psdv.getPropertyTimestamp()) {
+                if (property.getTimestamp() > psdv.getTimestamp()) {
                     return true;
                 }
             }
@@ -236,5 +271,55 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
     protected List<Visibility> getHiddenVisibilities(List<SqlGraphValueBase> values) {
         // TODO
         return new ArrayList<>();
+    }
+
+    private static class PropertyMapKey {
+        private final String propertyKey;
+        private final String propertyName;
+        private final Visibility propertyVisibility;
+
+        public PropertyMapKey(Property property) {
+            this.propertyKey = property.getKey();
+            this.propertyName = property.getName();
+            this.propertyVisibility = property.getVisibility();
+        }
+
+        public PropertyMapKey(PropertyValueBase propertyValueBase) {
+            this.propertyKey = propertyValueBase.getPropertyKey();
+            this.propertyName = propertyValueBase.getPropertyName();
+            this.propertyVisibility = propertyValueBase.getPropertyVisibility();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            PropertyMapKey that = (PropertyMapKey) o;
+
+            if (!propertyKey.equals(that.propertyKey)) {
+                return false;
+            }
+            if (!propertyName.equals(that.propertyName)) {
+                return false;
+            }
+            if (!propertyVisibility.equals(that.propertyVisibility)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = propertyKey.hashCode();
+            result = 31 * result + propertyName.hashCode();
+            result = 31 * result + propertyVisibility.hashCode();
+            return result;
+        }
     }
 }

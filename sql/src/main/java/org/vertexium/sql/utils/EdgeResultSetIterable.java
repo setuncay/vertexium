@@ -9,6 +9,7 @@ import org.vertexium.sql.SqlGraphSQL;
 import org.vertexium.sql.models.EdgeSignalValue;
 import org.vertexium.sql.models.SqlGraphValueBase;
 
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -31,7 +32,7 @@ public abstract class EdgeResultSetIterable extends ElementResultSetIterable<Edg
             return null;
         }
         String newEdgeLabel = null;
-        List<Property> properties = getProperties(values);
+        Collection<Property> properties = getProperties(values);
         List<PropertyDeleteMutation> propertyDeleteMutations = getPropertyDeleteMutation(values);
         List<PropertySoftDeleteMutation> propertySoftDeleteMutations = getPropertySoftDeleteMutation(values, properties);
         List<Visibility> hiddenVisibilities = getHiddenVisibilities(values);
