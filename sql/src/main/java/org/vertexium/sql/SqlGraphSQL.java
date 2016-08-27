@@ -669,4 +669,25 @@ public class SqlGraphSQL {
             throw new VertexiumException("Could not soft delete properties", ex);
         }
     }
+
+    public void truncate() {
+        try (Connection conn = getConnection()) {
+            truncateTable(conn, configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME));
+            truncateTable(conn, configuration.tableNameWithPrefix(SqlGraphConfiguration.EDGE_TABLE_NAME));
+            truncateTable(conn, configuration.tableNameWithPrefix(SqlGraphConfiguration.STREAMING_PROPERTIES_TABLE_NAME));
+            truncateTable(conn, configuration.tableNameWithPrefix(SqlGraphConfiguration.METADATA_TABLE_NAME));
+        } catch (SQLException e) {
+            throw new VertexiumException("Could not delete from tables", e);
+        }
+    }
+
+    private void truncateTable(Connection conn, String tableName) {
+        try {
+            try (PreparedStatement stmt = conn.prepareStatement(String.format("DELETE FROM %s"))) {
+                stmt.executeUpdate();
+            }
+        } catch (SQLException e) {
+            throw new VertexiumException("Could not delete from: " + tableName, e);
+        }
+    }
 }

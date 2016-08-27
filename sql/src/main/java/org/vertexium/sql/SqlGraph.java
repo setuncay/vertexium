@@ -263,12 +263,17 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public boolean isVisibilityValid(Visibility visibility, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        return authorizations.canRead(visibility);
     }
 
     @Override
     public void truncate() {
-        throw new VertexiumException("not implemented");
+        try {
+            getSqlGraphSql().truncate();
+            getSearchIndex().truncate(this);
+        } catch (Exception ex) {
+            throw new VertexiumException("Could not delete rows", ex);
+        }
     }
 
     @Override
