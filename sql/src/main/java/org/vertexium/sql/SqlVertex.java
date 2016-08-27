@@ -317,6 +317,7 @@ public class SqlVertex extends SqlElement implements Vertex {
         return getGraph().getSearchIndex().queryVertex(getGraph(), this, queryString, authorizations);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ExistingElementMutation<Vertex> prepareMutation() {
         return new ExistingElementMutationImpl<Vertex>(this) {
@@ -330,37 +331,41 @@ public class SqlVertex extends SqlElement implements Vertex {
 
     @Override
     public Iterable<EdgeVertexPair> getEdgeVertexPairs(Direction direction, Authorizations authorizations) {
-        return getEdgeVertexPairs(direction, FetchHint.ALL, authorizations);
+        return getEdgeVertexPairs(getEdgeInfos(direction, authorizations), FetchHint.ALL, null, authorizations);
     }
 
     @Override
     public Iterable<EdgeVertexPair> getEdgeVertexPairs(Direction direction, EnumSet<FetchHint> fetchHints, Authorizations authorizations) {
-        return getEdgeVertexPairs(direction, fetchHints, null, authorizations);
+        return getEdgeVertexPairs(getEdgeInfos(direction, authorizations), fetchHints, null, authorizations);
     }
 
     @Override
     public Iterable<EdgeVertexPair> getEdgeVertexPairs(Direction direction, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        return getEdgeVertexPairs(getEdgeInfos(direction, authorizations), fetchHints, endTime, authorizations);
     }
 
     @Override
     public Iterable<EdgeVertexPair> getEdgeVertexPairs(Direction direction, String label, Authorizations authorizations) {
-        return getEdgeVertexPairs(direction, label, FetchHint.ALL, authorizations);
+        return getEdgeVertexPairs(getEdgeInfos(direction, label, authorizations), FetchHint.ALL, null, authorizations);
     }
 
     @Override
     public Iterable<EdgeVertexPair> getEdgeVertexPairs(Direction direction, String label, EnumSet<FetchHint> fetchHints, Authorizations authorizations) {
-        return getEdgeVertexPairs(direction, new String[]{label}, fetchHints, authorizations);
+        return getEdgeVertexPairs(getEdgeInfos(direction, label, authorizations), fetchHints, null, authorizations);
     }
 
     @Override
     public Iterable<EdgeVertexPair> getEdgeVertexPairs(Direction direction, String[] labels, Authorizations authorizations) {
-        return getEdgeVertexPairs(direction, labels, FetchHint.ALL, authorizations);
+        return getEdgeVertexPairs(getEdgeInfos(direction, labels, authorizations), FetchHint.ALL, null, authorizations);
     }
 
     @Override
     public Iterable<EdgeVertexPair> getEdgeVertexPairs(Direction direction, String[] labels, EnumSet<FetchHint> fetchHints, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        return getEdgeVertexPairs(getEdgeInfos(direction, labels, authorizations), fetchHints, null, authorizations);
+    }
+
+    private Iterable<EdgeVertexPair> getEdgeVertexPairs(Iterable<EdgeInfo> edgeInfos, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+        return EdgeVertexPair.getEdgeVertexPairs(getGraph(), getId(), edgeInfos, fetchHints, endTime, authorizations);
     }
 
     protected void addOutEdgeInfo(final Edge outEdge) {
