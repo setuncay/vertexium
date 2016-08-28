@@ -15,6 +15,7 @@ public class SqlElement extends ElementBase {
     public static final String COLUMN_TYPE = "type";
     public static final String COLUMN_TIMESTAMP = "timestamp";
     public static final String COLUMN_ID = "key";
+    public static final String COLUMN_PK = "id";
 
     protected SqlElement(
             Graph graph,
@@ -42,12 +43,18 @@ public class SqlElement extends ElementBase {
 
     @Override
     public void deleteProperty(String key, String name, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        Property property = super.removePropertyInternal(key, name);
+        if (property != null) {
+            getGraph().deleteProperty(this, property, authorizations);
+        }
     }
 
     @Override
     public void deleteProperties(String name, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        Iterable<Property> properties = super.removePropertyInternal(name);
+        for (Property property : properties) {
+            getGraph().deleteProperty(this, property, authorizations);
+        }
     }
 
     @Override
@@ -100,7 +107,10 @@ public class SqlElement extends ElementBase {
 
     @Override
     public void deleteProperty(String key, String name, Visibility visibility, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        Property property = super.removePropertyInternal(key, name, visibility);
+        if (property != null) {
+            getGraph().deleteProperty(this, property, authorizations);
+        }
     }
 
     @Override

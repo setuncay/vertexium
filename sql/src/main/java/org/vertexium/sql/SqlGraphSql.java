@@ -39,4 +39,6 @@ public interface SqlGraphSql {
     void metadataSetMetadata(String key, Object value);
 
     StreamingPropertyValue selectStreamingPropertyValue(long spvRowId);
+
+    void deletePropertyRows(Connection conn, ElementType elementType, String elementId, String propertyKey, String propertyName, Visibility propertyVisibility);
 }

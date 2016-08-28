@@ -2,6 +2,7 @@ package org.vertexium.sql;
 
 import org.vertexium.*;
 import org.vertexium.property.StreamingPropertyValue;
+import org.vertexium.sql.models.PropertyValueBase;
 import org.vertexium.sql.models.SqlGraphValueBase;
 import org.vertexium.sql.utils.*;
 import org.vertexium.util.IterableUtils;
@@ -12,7 +13,9 @@ import org.vertexium.util.VertexiumLoggerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 
 public class SqlGraphSqlImpl implements SqlGraphSql {
     private static final VertexiumLogger LOGGER = VertexiumLoggerFactory.getLogger(SqlGraphSqlImpl.class);
@@ -59,7 +62,7 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
     protected void createElementTable(Connection conn, String tableName) {
         String sql = String.format(
                 "CREATE TABLE IF NOT EXISTS %s (" +
-                        "id BIGINT PRIMARY KEY AUTO_INCREMENT" +
+                        SqlElement.COLUMN_PK + " BIGINT PRIMARY KEY AUTO_INCREMENT" +
                         ", " + SqlElement.COLUMN_ID + " VARCHAR(" + VARCHAR_SIZE + ") NOT NULL" +
                         ", " + SqlElement.COLUMN_VISIBILITY + " VARCHAR(" + VARCHAR_SIZE + ") NOT NULL" +
                         ", " + SqlElement.COLUMN_TYPE + " INT NOT NULL" +
@@ -189,6 +192,56 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
             }
         } catch (SQLException ex) {
             throw new VertexiumException("Could not read StreamingPropertyValue", ex);
+        }
+    }
+
+    @Override
+    public void deletePropertyRows(
+            Connection conn,
+            ElementType elementType,
+            String elementId,
+            String propertyKey,
+            String propertyName,
+            Visibility propertyVisibility
+    ) {
+        try {
+            String tableName = getTableNameFromElementType(elementType);
+            String sql = String.format("SELECT * FROM %s WHERE %s=?", tableName, SqlElement.COLUMN_ID);
+            List<Long> toDelete = new ArrayList<>();
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, elementId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        long pk = rs.getLong(SqlElement.COLUMN_PK);
+                        byte[] valueBytes = rs.getBytes(SqlElement.COLUMN_VALUE);
+                        Object valueObject = serializer.bytesToObject(valueBytes);
+                        if (!(valueObject instanceof PropertyValueBase)) {
+                            continue;
+                        }
+                        PropertyValueBase value = (PropertyValueBase) valueObject;
+                        if (!propertyKey.equals(value.getPropertyKey())) {
+                            continue;
+                        }
+                        if (!propertyName.equals(value.getPropertyName())) {
+                            continue;
+                        }
+                        if (!propertyVisibility.equals(value.getPropertyVisibility())) {
+                            continue;
+                        }
+                        toDelete.add(pk);
+                    }
+                }
+            }
+
+            for (Long pk : toDelete) {
+                sql = String.format("DELETE FROM %s where %s=?", tableName, SqlElement.COLUMN_PK);
+                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    stmt.setLong(1, pk);
+                    stmt.executeUpdate();
+                }
+            }
+        } catch (SQLException ex) {
+            throw new VertexiumException("Could not delete property rows", ex);
         }
     }
 

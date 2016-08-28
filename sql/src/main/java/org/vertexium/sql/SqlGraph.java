@@ -146,6 +146,8 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
             }
         }
 
+        ensurePropertyDefined(property.getName(), propertyValue);
+
         PropertyValueValue value = new PropertyValueValue(
                 property.getKey(),
                 property.getName(),
@@ -885,5 +887,26 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
             Authorizations authorizations
     ) {
         throw new VertexiumException("not implemented");
+    }
+
+    public void deleteProperty(SqlElement element, Property property, Authorizations authorizations) {
+        try (Connection conn = getSqlGraphSql().getConnection()) {
+            getSqlGraphSql().deletePropertyRows(
+                    conn,
+                    ElementType.getTypeFromElement(element),
+                    element.getId(),
+                    property.getKey(),
+                    property.getName(),
+                    property.getVisibility()
+            );
+        } catch (SQLException e) {
+            throw new VertexiumException("could not delete property: " + element.getId() + ": " + property, e);
+        }
+
+        getSearchIndex().deleteProperty(this, element, property, authorizations);
+
+        if (hasEventListeners()) {
+            queueEvent(new DeletePropertyEvent(this, element, property));
+        }
     }
 }
