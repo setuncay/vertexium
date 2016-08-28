@@ -21,7 +21,6 @@ import java.util.*;
 
 public abstract class ElementResultSetIterable<T extends Element> extends SqlGraphSqlResultSetIterable<T> {
     private static final VertexiumLogger LOGGER = VertexiumLoggerFactory.getLogger(ElementResultSetIterable.class);
-    private final SqlGraphSql sqlGraphSql;
     private final SqlGraph graph;
     private final EnumSet<FetchHint> fetchHints;
     private final Long endTime;
@@ -35,9 +34,10 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
             EnumSet<FetchHint> fetchHints,
             Long endTime,
             VertexiumSerializer serializer,
-            Authorizations authorizations
+            Authorizations authorizations,
+            PreparedStatementCreator preparedStatementCreator
     ) {
-        this.sqlGraphSql = sqlGraphSql;
+        super(sqlGraphSql, preparedStatementCreator);
         this.graph = graph;
         this.fetchHints = fetchHints;
         this.endTime = endTime;
@@ -45,7 +45,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         this.authorizations = authorizations;
         visibilityEvaluator = new VisibilityEvaluator(authorizations.getAuthorizations());
     }
-
+    
     @Override
     protected T readFromResultSet(ResultSet rs) throws SQLException {
         if (rs.isBeforeFirst()) {
@@ -288,6 +288,27 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
             }
         }
         return results;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T extends Element> ElementResultSetIterable<T> create(
+            SqlGraphSql sqlGraphSql,
+            SqlGraph graph,
+            ElementType elementType,
+            EnumSet<FetchHint> fetchHints,
+            Long endTime,
+            VertexiumSerializer serializer,
+            Authorizations authorizations,
+            PreparedStatementCreator preparedStatementCreator
+    ) {
+        switch (elementType) {
+            case VERTEX:
+                return (ElementResultSetIterable<T>) new VertexResultSetIterable(sqlGraphSql, graph, fetchHints, endTime, serializer, authorizations, preparedStatementCreator);
+            case EDGE:
+                return (ElementResultSetIterable<T>) new EdgeResultSetIterable(sqlGraphSql, graph, fetchHints, endTime, serializer, authorizations, preparedStatementCreator);
+            default:
+                throw new VertexiumException("unexpected element type: " + elementType);
+        }
     }
 
     private static class PropertyMapKey {

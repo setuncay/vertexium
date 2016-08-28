@@ -14,7 +14,12 @@ import java.util.List;
 
 public abstract class ResultSetIterable<T> implements Iterable<T>, Closeable {
     private static final VertexiumLogger LOGGER = VertexiumLoggerFactory.getLogger(ResultSetIterable.class);
+    private final PreparedStatementCreator preparedStatementCreator;
     private List<ResultSetIterator> iterators = new ArrayList<>();
+
+    protected ResultSetIterable(PreparedStatementCreator preparedStatementCreator) {
+        this.preparedStatementCreator = preparedStatementCreator;
+    }
 
     @Override
     public Iterator<T> iterator() {
@@ -32,7 +37,9 @@ public abstract class ResultSetIterable<T> implements Iterable<T>, Closeable {
 
     protected abstract Connection getConnection() throws SQLException;
 
-    protected abstract PreparedStatement getStatement(Connection conn) throws SQLException;
+    protected final PreparedStatement getStatement(Connection conn) throws SQLException {
+        return preparedStatementCreator.getStatement(conn);
+    }
 
     protected ResultSet getResultSet(PreparedStatement stmt) throws SQLException {
         return stmt.executeQuery();

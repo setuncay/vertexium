@@ -139,17 +139,7 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
     @Override
     public ResultSetIterable<GraphMetadataEntry> metadataSelectAll() {
         final String sql = String.format("SELECT key, value FROM %s", configuration.tableNameWithPrefix(SqlGraphConfiguration.METADATA_TABLE_NAME));
-        return new SqlGraphSqlResultSetIterable<GraphMetadataEntry>() {
-            @Override
-            protected Connection getConnection() throws SQLException {
-                return SqlGraphSqlImpl.this.getConnection();
-            }
-
-            @Override
-            protected PreparedStatement getStatement(Connection conn) throws SQLException {
-                return conn.prepareStatement(sql);
-            }
-
+        return new SqlGraphSqlResultSetIterable<GraphMetadataEntry>(this, new SqlPreparedStatementCreator(sql)) {
             @Override
             protected GraphMetadataEntry readFromResultSet(ResultSet rs) throws SQLException {
                 if (!rs.next()) {
@@ -374,21 +364,17 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
                 SqlVertex.COLUMN_TIMESTAMP
         );
 
-        return new VertexResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
-            @Override
-            protected Connection getConnection() throws SQLException {
-                return SqlGraphSqlImpl.this.getConnection();
-            }
-
-            @Override
-            protected PreparedStatement getStatement(Connection conn) throws SQLException {
-                return conn.prepareStatement(sql);
-            }
-        };
+        return new VertexResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations, new SqlPreparedStatementCreator(sql));
     }
 
-    @Override
-    public Vertex selectVertex(SqlGraph graph, final String vertexId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+    public <T extends Element> T selectElement(
+            SqlGraph graph,
+            final String elementId,
+            ElementType elementType,
+            EnumSet<FetchHint> fetchHints,
+            Long endTime,
+            Authorizations authorizations
+    ) {
         String timestampClause;
         if (endTime == null) {
             timestampClause = "";
@@ -398,30 +384,36 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
 
         final String sql = String.format(
                 "SELECT * FROM %s WHERE %s=? %s ORDER BY %s, %s",
-                configuration.tableNameWithPrefix(SqlGraphConfiguration.VERTEX_TABLE_NAME),
-                SqlVertex.COLUMN_ID,
+                getTableNameFromElementType(elementType),
+                SqlElement.COLUMN_ID,
                 timestampClause,
-                SqlVertex.COLUMN_ID,
-                SqlVertex.COLUMN_TIMESTAMP
+                SqlElement.COLUMN_ID,
+                SqlElement.COLUMN_TIMESTAMP
         );
 
-        try (VertexResultSetIterable it = new VertexResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
+        PreparedStatementCreator psc = new SqlPreparedStatementCreator(sql) {
             @Override
-            protected Connection getConnection() throws SQLException {
-                return SqlGraphSqlImpl.this.getConnection();
-            }
-
-            @Override
-            protected PreparedStatement getStatement(Connection conn) throws SQLException {
-                PreparedStatement stmt = conn.prepareStatement(sql);
-                stmt.setString(1, vertexId);
+            public PreparedStatement getStatement(Connection conn) throws SQLException {
+                PreparedStatement stmt = super.getStatement(conn);
+                stmt.setString(1, elementId);
                 return stmt;
             }
-        }) {
+        };
+        try (ElementResultSetIterable<T> it = ElementResultSetIterable.create(this, graph, elementType, fetchHints, endTime, serializer, authorizations, psc)) {
             return IterableUtils.singleOrDefault(it, null);
         } catch (IOException e) {
             throw new VertexiumException("Could not close iterator", e);
         }
+    }
+
+    @Override
+    public Vertex selectVertex(SqlGraph graph, String vertexId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+        return selectElement(graph, vertexId, ElementType.VERTEX, fetchHints, endTime, authorizations);
+    }
+
+    @Override
+    public Edge selectEdge(SqlGraph graph, final String edgeId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+        return selectElement(graph, edgeId, ElementType.EDGE, fetchHints, endTime, authorizations);
     }
 
     @Override
@@ -440,17 +432,7 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
                 SqlEdge.COLUMN_ID,
                 SqlEdge.COLUMN_TIMESTAMP
         );
-        return new EdgeResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations) {
-            @Override
-            protected Connection getConnection() throws SQLException {
-                return SqlGraphSqlImpl.this.getConnection();
-            }
-
-            @Override
-            protected PreparedStatement getStatement(Connection conn) throws SQLException {
-                return conn.prepareStatement(sql);
-            }
-        };
+        return new EdgeResultSetIterable(this, graph, fetchHints, endTime, serializer, authorizations, new SqlPreparedStatementCreator(sql));
     }
 
     @Override

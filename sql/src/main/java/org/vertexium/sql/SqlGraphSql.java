@@ -30,6 +30,8 @@ public interface SqlGraphSql {
 
     Iterable<Edge> selectAllEdges(SqlGraph graph, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations);
 
+    Edge selectEdge(SqlGraph graph, String edgeId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations);
+
     Iterable<Vertex> selectAllVertices(SqlGraph graph, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations);
 
     Vertex selectVertex(SqlGraph graph, String vertexId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations);

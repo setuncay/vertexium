@@ -391,6 +391,11 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
     }
 
     @Override
+    public Edge getEdge(String edgeId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+        return getSqlGraphSql().selectEdge(this, edgeId, fetchHints, endTime, authorizations);
+    }
+
+    @Override
     protected GraphMetadataStore getGraphMetadataStore() {
         return metadataStore;
     }

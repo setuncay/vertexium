@@ -16,16 +16,17 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 
-public abstract class VertexResultSetIterable extends ElementResultSetIterable<Vertex> {
+public class VertexResultSetIterable extends ElementResultSetIterable<Vertex> {
     public VertexResultSetIterable(
             SqlGraphSql sqlGraphSql,
             SqlGraph graph,
             EnumSet<FetchHint> fetchHints,
             Long endTime,
             VertexiumSerializer serializer,
-            Authorizations authorizations
+            Authorizations authorizations,
+            PreparedStatementCreator preparedStatementCreator
     ) {
-        super(sqlGraphSql, graph, fetchHints, endTime, serializer, authorizations);
+        super(sqlGraphSql, graph, fetchHints, endTime, serializer, authorizations, preparedStatementCreator);
     }
 
     @Override
