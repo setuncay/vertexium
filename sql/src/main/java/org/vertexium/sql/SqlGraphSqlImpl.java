@@ -393,7 +393,7 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
         if (endTime == null) {
             timestampClause = "";
         } else {
-            timestampClause = String.format("WHERE %s <= %d", SqlEdge.COLUMN_TIMESTAMP, endTime);
+            timestampClause = String.format("AND %s <= %d", SqlEdge.COLUMN_TIMESTAMP, endTime);
         }
 
         final String sql = String.format(
