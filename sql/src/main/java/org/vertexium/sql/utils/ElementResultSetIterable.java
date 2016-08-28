@@ -69,8 +69,6 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         String id = null;
         List<SqlGraphValueBase> values = new ArrayList<>();
 
-        // TODO fetchHints
-
         while (true) {
             if (!first && !rs.getString(SqlElement.COLUMN_ID).equals(id)) {
                 break;
@@ -125,16 +123,20 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
     }
 
     protected ElementSignalValueBase getElementSignalValue(List<SqlGraphValueBase> values) {
+        boolean includeHidden = fetchHints.contains(FetchHint.INCLUDE_HIDDEN);
+
         ElementSignalValueBase lastElementSignalValueBase = null;
         ElementSignalValueBase result = null;
         for (SqlGraphValueBase value : values) {
             if (value instanceof ElementSignalValueBase) {
                 lastElementSignalValueBase = (ElementSignalValueBase) value;
                 result = lastElementSignalValueBase;
-            } else if (value instanceof ElementHiddenValue) {
+            } else if (!includeHidden && value instanceof ElementHiddenValue) {
                 result = null;
-            } else if (value instanceof ElementVisibleValue) {
+            } else if (!includeHidden && value instanceof ElementVisibleValue) {
                 result = lastElementSignalValueBase;
+            } else if (value instanceof SoftDeleteElementValue) {
+                result = null;
             }
         }
         return result;
@@ -278,8 +280,14 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
     }
 
     protected List<Visibility> getHiddenVisibilities(List<SqlGraphValueBase> values) {
-        // TODO
-        return new ArrayList<>();
+        List<Visibility> results = new ArrayList<>();
+        for (SqlGraphValueBase value : values) {
+            if (value instanceof ElementHiddenValue) {
+                ElementHiddenValue ehv = (ElementHiddenValue) value;
+                results.add(ehv.getVisibility());
+            }
+        }
+        return results;
     }
 
     private static class PropertyMapKey {

@@ -13,6 +13,8 @@ import org.vertexium.util.LookAheadIterable;
 
 import java.util.*;
 
+import static org.vertexium.util.IterableUtils.count;
+
 public class SqlVertex extends SqlElement implements Vertex {
     private final List<EdgeInfo> outEdgeInfos;
     private final List<EdgeInfo> inEdgeInfos;
@@ -193,7 +195,7 @@ public class SqlVertex extends SqlElement implements Vertex {
 
     @Override
     public int getEdgeCount(Direction direction, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        return count(getEdgeIds(direction, authorizations));
     }
 
     @Override
@@ -401,5 +403,33 @@ public class SqlVertex extends SqlElement implements Vertex {
 
     protected void addInEdgeInfo(EdgeInfo inEdgeInfo) {
         inEdgeInfos.add(inEdgeInfo);
+    }
+
+    void removeOutEdge(String edgeId) {
+        for (int i = outEdgeInfos.size() - 1; i >= 0; i--) {
+            EdgeInfo edgeInfo = outEdgeInfos.get(i);
+            if (edgeInfo.getEdgeId().equals(edgeId)) {
+                outEdgeInfos.remove(i);
+            }
+        }
+    }
+
+    void removeInEdge(String edgeId) {
+        for (int i = inEdgeInfos.size() - 1; i >= 0; i--) {
+            EdgeInfo edgeInfo = inEdgeInfos.get(i);
+            if (edgeInfo.getEdgeId().equals(edgeId)) {
+                inEdgeInfos.remove(i);
+            }
+        }
+    }
+
+    public void addOutEdge(String edgeId, String edgeLabel, String vertexId) {
+        EdgeInfo edgeInfo = new DefaultEdgeInfo(edgeId, edgeLabel, vertexId);
+        outEdgeInfos.add(edgeInfo);
+    }
+
+    public void addInEdge(String edgeId, String edgeLabel, String vertexId) {
+        EdgeInfo edgeInfo = new DefaultEdgeInfo(edgeId, edgeLabel, vertexId);
+        inEdgeInfos.add(edgeInfo);
     }
 }

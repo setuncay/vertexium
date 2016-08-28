@@ -1,7 +1,5 @@
 package org.vertexium.sql.utils;
 
-import org.vertexium.VertexiumException;
-
 public enum RowType {
     SIGNAL(1),
     PROPERTY(2),
@@ -11,7 +9,16 @@ public enum RowType {
     SOFT_DELETE_PROPERTY(6),
     HIDDEN_PROPERTY(7),
     VISIBLE_PROPERTY(8),
-    HIDDEN_ELEMENT(9);
+    HIDDEN_ELEMENT(9),
+    HIDDEN_EDGE_OUT(10),
+    HIDDEN_EDGE_IN(11),
+    VISIBLE_ELEMENT(12),
+    VISIBLE_EDGE_OUT(13),
+    VISIBLE_EDGE_IN(14),
+    SOFT_DELETE_VERTEX(15),
+    SOFT_DELETE_OUT_EDGE(16),
+    SOFT_DELETE_IN_EDGE(17),
+    SOFT_DELETE_EDGE(18);
 
     private final int value;
 
@@ -21,29 +28,5 @@ public enum RowType {
 
     public int getValue() {
         return value;
-    }
-
-    public static RowType fromValue(int type) {
-        switch (type) {
-            case 1:
-                return SIGNAL;
-            case 2:
-                return PROPERTY;
-            case 3:
-                return PROPERTY_METADATA;
-            case 4:
-                return OUT_EDGE_INFO;
-            case 5:
-                return IN_EDGE_INFO;
-            case 6:
-                return SOFT_DELETE_PROPERTY;
-            case 7:
-                return HIDDEN_PROPERTY;
-            case 8:
-                return VISIBLE_PROPERTY;
-            case 9:
-                return HIDDEN_ELEMENT;
-        }
-        throw new VertexiumException("Unhandled row type: " + type);
     }
 }

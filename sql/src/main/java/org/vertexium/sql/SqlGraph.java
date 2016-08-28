@@ -196,10 +196,10 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
         return getSqlGraphSql().selectAllVertices(this, fetchHints, endTime, authorizations);
     }
 
-//    @Override
-//    public Vertex getVertex(String vertexId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
-//        return getSqlGraphSql().selectVertex(this, vertexId, fetchHints, endTime, authorizations);
-//    }
+    @Override
+    public Vertex getVertex(String vertexId, EnumSet<FetchHint> fetchHints, Long endTime, Authorizations authorizations) {
+        return getSqlGraphSql().selectVertex(this, vertexId, fetchHints, endTime, authorizations);
+    }
 
     @Override
     public EdgeBuilder prepareEdge(
@@ -333,12 +333,54 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public void softDeleteVertex(Vertex vertex, Long timestamp, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        checkNotNull(vertex, "vertex cannot be null");
+        if (timestamp == null) {
+            timestamp = IncreasingTime.currentTimeMillis();
+        }
+
+        getSearchIndex().deleteElement(this, vertex, authorizations);
+
+        // Delete all edges that this vertex participates.
+        for (Edge edge : vertex.getEdges(Direction.BOTH, authorizations)) {
+            softDeleteEdge(edge, timestamp, authorizations);
+        }
+
+        try (Connection conn = getSqlGraphSql().getConnection()) {
+            Visibility visibility = vertex.getVisibility();
+            getSqlGraphSql().insertElementRow(conn, ElementType.VERTEX, vertex.getId(), RowType.SOFT_DELETE_VERTEX, timestamp, visibility, new SoftDeleteVertexValue());
+        } catch (SQLException e) {
+            throw new VertexiumException("Could not soft delete vertex", e);
+        }
+
+        if (hasEventListeners()) {
+            queueEvent(new SoftDeleteVertexEvent(this, vertex));
+        }
     }
 
     @Override
     public void softDeleteEdge(Edge edge, Long timestamp, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        checkNotNull(edge, "edge cannot be null");
+        if (timestamp == null) {
+            timestamp = IncreasingTime.currentTimeMillis();
+        }
+
+        getSearchIndex().deleteElement(this, edge, authorizations);
+
+        try (Connection conn = getSqlGraphSql().getConnection()) {
+            String outVertexId = edge.getVertexId(Direction.OUT);
+            String inVertexId = edge.getVertexId(Direction.IN);
+            Visibility visibility = edge.getVisibility();
+
+            getSqlGraphSql().insertElementRow(conn, ElementType.VERTEX, outVertexId, RowType.SOFT_DELETE_OUT_EDGE, timestamp, visibility, new SoftDeleteOutEdgeValue(edge.getId()));
+            getSqlGraphSql().insertElementRow(conn, ElementType.VERTEX, inVertexId, RowType.SOFT_DELETE_IN_EDGE, timestamp, visibility, new SoftDeleteInEdgeValue(edge.getId()));
+            getSqlGraphSql().insertElementRow(conn, ElementType.EDGE, edge.getId(), RowType.SOFT_DELETE_EDGE, timestamp, visibility, new SoftDeleteEdgeValue());
+        } catch (SQLException ex) {
+            throw new VertexiumException("Cannot soft delete edge: " + edge.getId(), ex);
+        }
+
+        if (hasEventListeners()) {
+            queueEvent(new SoftDeleteEdgeEvent(this, edge));
+        }
     }
 
     @Override
@@ -394,7 +436,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
                     RowType.HIDDEN_ELEMENT,
                     timestamp,
                     visibility,
-                    new ElementHiddenValue()
+                    new ElementHiddenValue(visibility)
             );
         } catch (SQLException ex) {
             throw new VertexiumException("Could not mark vertex hidden: " + vertex.getId(), ex);
@@ -407,11 +449,29 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public void markVertexVisible(Vertex vertex, Visibility visibility, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        checkNotNull(vertex, "vertex cannot be null");
+        long timestamp = IncreasingTime.currentTimeMillis();
+
+        // Delete all edges that this vertex participates.
+        for (Edge edge : vertex.getEdges(Direction.BOTH, FetchHint.ALL_INCLUDING_HIDDEN, authorizations)) {
+            markEdgeVisible(edge, visibility, authorizations);
+        }
+
+        try (Connection conn = getSqlGraphSql().getConnection()) {
+            getSqlGraphSql().insertElementRow(conn, ElementType.VERTEX, vertex.getId(), RowType.VISIBLE_ELEMENT, timestamp, visibility, new ElementVisibleValue(visibility));
+        } catch (SQLException e) {
+            throw new VertexiumException("Could not mark vertex visibile", e);
+        }
+
+        if (hasEventListeners()) {
+            queueEvent(new MarkVisibleVertexEvent(this, vertex));
+        }
     }
 
     @Override
     public void markEdgeHidden(Edge edge, Visibility visibility, Authorizations authorizations) {
+        long timestamp = IncreasingTime.currentTimeMillis();
+
         checkNotNull(edge);
 
         Vertex out = edge.getVertex(Direction.OUT, authorizations);
@@ -423,24 +483,20 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
             throw new VertexiumException(String.format("Unable to mark edge hidden %s, can't find in vertex %s", edge.getId(), edge.getVertexId(Direction.IN)));
         }
 
-        // TODO
-//        Mutation outMutation = new Mutation(out.getId());
-//        outMutation.put(AccumuloVertex.CF_OUT_EDGE_HIDDEN, new Text(edge.getId()), columnVisibility, AccumuloElement.HIDDEN_VALUE);
-//
-//        Mutation inMutation = new Mutation(in.getId());
-//        inMutation.put(AccumuloVertex.CF_IN_EDGE_HIDDEN, new Text(edge.getId()), columnVisibility, AccumuloElement.HIDDEN_VALUE);
-//
-//        addMutations(getVerticesWriter(), outMutation, inMutation);
-//
-//        // Delete everything else related to edge.
-//        addMutations(getEdgesWriter(), getMarkHiddenRowMutation(edge.getId(), columnVisibility));
-//
-//        if (out instanceof AccumuloVertex) {
-//            ((AccumuloVertex) out).removeOutEdge(edge);
-//        }
-//        if (in instanceof AccumuloVertex) {
-//            ((AccumuloVertex) in).removeInEdge(edge);
-//        }
+        try (Connection conn = getSqlGraphSql().getConnection()) {
+            getSqlGraphSql().insertElementRow(conn, ElementType.VERTEX, out.getId(), RowType.HIDDEN_EDGE_OUT, timestamp, visibility, new EdgeOutHiddenValue(edge.getId()));
+            getSqlGraphSql().insertElementRow(conn, ElementType.VERTEX, in.getId(), RowType.HIDDEN_EDGE_IN, timestamp, visibility, new EdgeInHiddenValue(edge.getId()));
+            getSqlGraphSql().insertElementRow(conn, ElementType.EDGE, edge.getId(), RowType.HIDDEN_ELEMENT, timestamp, visibility, new ElementHiddenValue(visibility));
+
+            if (out instanceof SqlVertex) {
+                ((SqlVertex) out).removeOutEdge(edge.getId());
+            }
+            if (in instanceof SqlVertex) {
+                ((SqlVertex) in).removeInEdge(edge.getId());
+            }
+        } catch (SQLException e) {
+            throw new VertexiumException("Could not hide edge: " + edge.getId(), e);
+        }
 
         if (hasEventListeners()) {
             queueEvent(new MarkHiddenEdgeEvent(this, edge));
@@ -449,7 +505,34 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public void markEdgeVisible(Edge edge, Visibility visibility, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        Vertex out = edge.getVertex(Direction.OUT, FetchHint.ALL_INCLUDING_HIDDEN, authorizations);
+        if (out == null) {
+            throw new VertexiumException(String.format("Unable to mark edge visible %s, can't find out vertex %s", edge.getId(), edge.getVertexId(Direction.OUT)));
+        }
+        Vertex in = edge.getVertex(Direction.IN, FetchHint.ALL_INCLUDING_HIDDEN, authorizations);
+        if (in == null) {
+            throw new VertexiumException(String.format("Unable to mark edge visible %s, can't find in vertex %s", edge.getId(), edge.getVertexId(Direction.IN)));
+        }
+        long timestamp = IncreasingTime.currentTimeMillis();
+
+        try (Connection conn = getSqlGraphSql().getConnection()) {
+            getSqlGraphSql().insertElementRow(conn, ElementType.VERTEX, out.getId(), RowType.VISIBLE_EDGE_OUT, timestamp, visibility, new EdgeOutVisibleValue(edge.getId(), visibility));
+            getSqlGraphSql().insertElementRow(conn, ElementType.VERTEX, in.getId(), RowType.VISIBLE_EDGE_IN, timestamp, visibility, new EdgeInVisibleValue(edge.getId(), visibility));
+            getSqlGraphSql().insertElementRow(conn, ElementType.EDGE, edge.getId(), RowType.VISIBLE_ELEMENT, timestamp, visibility, new ElementVisibleValue(visibility));
+        } catch (SQLException ex) {
+            throw new VertexiumException("Could not mark edge visibile", ex);
+        }
+
+        if (out instanceof SqlVertex) {
+            ((SqlVertex) out).addOutEdge(edge.getId(), edge.getLabel(), in.getId());
+        }
+        if (in instanceof SqlVertex) {
+            ((SqlVertex) in).addInEdge(edge.getId(), edge.getLabel(), out.getId());
+        }
+
+        if (hasEventListeners()) {
+            queueEvent(new MarkVisibleEdgeEvent(this, edge));
+        }
     }
 
     @Override

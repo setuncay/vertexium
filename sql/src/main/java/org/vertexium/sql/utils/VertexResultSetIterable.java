@@ -7,6 +7,7 @@ import org.vertexium.sql.SqlGraph;
 import org.vertexium.sql.SqlGraphSql;
 import org.vertexium.sql.SqlVertex;
 import org.vertexium.sql.models.EdgeInfoValue;
+import org.vertexium.sql.models.SoftDeleteInOutEdgeValue;
 import org.vertexium.sql.models.SqlGraphValueBase;
 import org.vertexium.sql.models.VertexSignalValue;
 
@@ -76,6 +77,14 @@ public abstract class VertexResultSetIterable extends ElementResultSetIterable<V
                         return v.getOtherVertexId();
                     }
                 });
+            } else if (value instanceof SoftDeleteInOutEdgeValue) {
+                SoftDeleteInOutEdgeValue v = (SoftDeleteInOutEdgeValue) value;
+                for (int i = edgeInfos.size() - 1; i >= 0; i--) {
+                    EdgeInfo edgeInfo = edgeInfos.get(i);
+                    if (edgeInfo.getEdgeId().equals(v.getEdgeId())) {
+                        edgeInfos.remove(i);
+                    }
+                }
             }
         }
         return edgeInfos;
