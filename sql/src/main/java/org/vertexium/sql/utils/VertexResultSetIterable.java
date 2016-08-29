@@ -6,15 +6,9 @@ import org.vertexium.mutation.PropertySoftDeleteMutation;
 import org.vertexium.sql.SqlGraph;
 import org.vertexium.sql.SqlGraphSql;
 import org.vertexium.sql.SqlVertex;
-import org.vertexium.sql.models.EdgeInfoValue;
-import org.vertexium.sql.models.SoftDeleteInOutEdgeValue;
-import org.vertexium.sql.models.SqlGraphValueBase;
-import org.vertexium.sql.models.VertexSignalValue;
+import org.vertexium.sql.models.*;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.List;
+import java.util.*;
 
 public class VertexResultSetIterable extends ElementResultSetIterable<Vertex> {
     public VertexResultSetIterable(
@@ -59,25 +53,11 @@ public class VertexResultSetIterable extends ElementResultSetIterable<Vertex> {
 
     private List<EdgeInfo> getEdgeInfos(List<SqlGraphValueBase> values, Direction direction) {
         List<EdgeInfo> edgeInfos = new ArrayList<>();
+        Set<String> edgeIdsToRemove = new HashSet<>();
         for (SqlGraphValueBase value : values) {
             if (value instanceof EdgeInfoValue && ((EdgeInfoValue) value).getDirection() == direction) {
                 final EdgeInfoValue v = (EdgeInfoValue) value;
-                edgeInfos.add(new EdgeInfo() {
-                    @Override
-                    public String getEdgeId() {
-                        return v.getEdgeId();
-                    }
-
-                    @Override
-                    public String getLabel() {
-                        return v.getEdgeLabel();
-                    }
-
-                    @Override
-                    public String getVertexId() {
-                        return v.getOtherVertexId();
-                    }
-                });
+                edgeInfos.add(new DefaultEdgeInfo(v.getEdgeId(), v.getEdgeLabel(), v.getOtherVertexId()));
             } else if (value instanceof SoftDeleteInOutEdgeValue) {
                 SoftDeleteInOutEdgeValue v = (SoftDeleteInOutEdgeValue) value;
                 for (int i = edgeInfos.size() - 1; i >= 0; i--) {
@@ -86,8 +66,22 @@ public class VertexResultSetIterable extends ElementResultSetIterable<Vertex> {
                         edgeInfos.remove(i);
                     }
                 }
+            } else if (value instanceof EdgeInOutHiddenValue) {
+                edgeIdsToRemove.add(((EdgeInOutHiddenValue) value).getEdgeId());
+            } else if (value instanceof EdgeInOutVisibleValue) {
+                edgeIdsToRemove.remove(((EdgeInOutVisibleValue) value).getEdgeId());
             }
         }
+
+        for (String edgeIdToRemove : edgeIdsToRemove) {
+            for (int i = edgeInfos.size() - 1; i >= 0; i--) {
+                EdgeInfo edgeInfo = edgeInfos.get(i);
+                if (edgeInfo.getEdgeId().equals(edgeIdToRemove)) {
+                    edgeInfos.remove(i);
+                }
+            }
+        }
+
         return edgeInfos;
     }
 }
