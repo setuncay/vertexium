@@ -4,6 +4,7 @@ import org.vertexium.*;
 import org.vertexium.property.StreamingPropertyValue;
 import org.vertexium.sql.models.PropertyValueBase;
 import org.vertexium.sql.models.SqlGraphValueBase;
+import org.vertexium.sql.models.VertexTableEdgeValueBase;
 import org.vertexium.sql.utils.*;
 import org.vertexium.util.IterableUtils;
 import org.vertexium.util.StreamUtils;
@@ -223,15 +224,62 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
                 }
             }
 
-            for (Long pk : toDelete) {
-                sql = String.format("DELETE FROM %s where %s=?", tableName, SqlElement.COLUMN_PK);
-                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                    stmt.setLong(1, pk);
-                    stmt.executeUpdate();
-                }
-            }
+            deleteRowsByPrimaryKeys(conn, tableName, toDelete);
         } catch (SQLException ex) {
             throw new VertexiumException("Could not delete property rows", ex);
+        }
+    }
+
+    private void deleteRowsByPrimaryKeys(Connection conn, String tableName, List<Long> toDelete) throws SQLException {
+        String sql;
+        for (Long pk : toDelete) {
+            sql = String.format("DELETE FROM %s WHERE %s=?", tableName, SqlElement.COLUMN_PK);
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setLong(1, pk);
+                stmt.executeUpdate();
+            }
+        }
+    }
+
+    @Override
+    public void deleteElementRows(Connection conn, ElementType elementType, String elementId) {
+        String tableName = getTableNameFromElementType(elementType);
+        String sql = String.format("DELETE FROM %s WHERE %s=?", tableName, SqlElement.COLUMN_ID);
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, elementId);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new VertexiumException("could not delete element rows", e);
+        }
+    }
+
+    @Override
+    public void deleteVertexEdgeRows(Connection conn, String vertexId, String edgeId) {
+        String tableName = getTableNameFromElementType(ElementType.VERTEX);
+        String sql = String.format("SELECT * FROM %s WHERE %s=?", tableName, SqlVertex.COLUMN_ID);
+        List<Long> toDelete = new ArrayList<>();
+        try {
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, vertexId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        long pk = rs.getLong(SqlElement.COLUMN_PK);
+                        byte[] valueBytes = rs.getBytes(SqlElement.COLUMN_VALUE);
+                        Object valueObject = serializer.bytesToObject(valueBytes);
+                        if (!(valueObject instanceof VertexTableEdgeValueBase)) {
+                            continue;
+                        }
+                        VertexTableEdgeValueBase v = (VertexTableEdgeValueBase) valueObject;
+                        if (v.getEdgeId().equals(edgeId)) {
+                            toDelete.add(pk);
+                        }
+                    }
+                }
+            }
+
+            deleteRowsByPrimaryKeys(conn, tableName, toDelete);
+        } catch (SQLException e) {
+            throw new VertexiumException("could not delete element rows", e);
         }
     }
 

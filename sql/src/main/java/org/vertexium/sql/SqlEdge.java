@@ -87,11 +87,11 @@ public class SqlEdge extends SqlElement implements Edge {
 
     @Override
     public Vertex getOtherVertex(String myVertexId, EnumSet<FetchHint> fetchHints, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        throw new VertexiumException("TODO");
     }
 
     @Override
     public ExistingEdgeMutation prepareMutation() {
-        throw new VertexiumException("not implemented");
+        throw new VertexiumException("TODO");
     }
 }

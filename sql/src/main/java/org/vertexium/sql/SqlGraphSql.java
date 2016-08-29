@@ -43,4 +43,8 @@ public interface SqlGraphSql {
     StreamingPropertyValue selectStreamingPropertyValue(long spvRowId);
 
     void deletePropertyRows(Connection conn, ElementType elementType, String elementId, String propertyKey, String propertyName, Visibility propertyVisibility);
+
+    void deleteElementRows(Connection conn, ElementType elementType, String elementId);
+
+    void deleteVertexEdgeRows(Connection conn, String vertexId, String edgeId);
 }

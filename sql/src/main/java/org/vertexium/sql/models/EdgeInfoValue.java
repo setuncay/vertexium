@@ -3,10 +3,9 @@ package org.vertexium.sql.models;
 import org.vertexium.Direction;
 import org.vertexium.Visibility;
 
-public class EdgeInfoValue extends SqlGraphValueBase {
+public class EdgeInfoValue extends VertexTableEdgeValueBase {
     private static final long serialVersionUID = -57036505856770487L;
     private final Direction direction;
-    private final String edgeId;
     private final String edgeLabel;
     private final Visibility edgeVisibility;
     private final String otherVertexId;
@@ -18,8 +17,8 @@ public class EdgeInfoValue extends SqlGraphValueBase {
             String otherVertexId,
             Visibility edgeVisibility
     ) {
+        super(edgeId);
         this.direction = direction;
-        this.edgeId = edgeId;
         this.edgeLabel = edgeLabel;
         this.edgeVisibility = edgeVisibility;
         this.otherVertexId = otherVertexId;
@@ -27,10 +26,6 @@ public class EdgeInfoValue extends SqlGraphValueBase {
 
     public Direction getDirection() {
         return direction;
-    }
-
-    public String getEdgeId() {
-        return edgeId;
     }
 
     public String getEdgeLabel() {

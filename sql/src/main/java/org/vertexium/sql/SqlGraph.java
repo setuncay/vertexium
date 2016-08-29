@@ -57,7 +57,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public void drop() {
-        throw new VertexiumException("not implemented");
+        throw new VertexiumException("TODO");
     }
 
     @Override
@@ -402,12 +402,44 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public void deleteVertex(Vertex vertex, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        checkNotNull(vertex, "vertex cannot be null");
+        getSearchIndex().deleteElement(this, vertex, authorizations);
+
+        // Delete all edges that this vertex participates.
+        for (Edge edge : vertex.getEdges(Direction.BOTH, authorizations)) {
+            deleteEdge(edge, authorizations);
+        }
+
+        try (Connection conn = getSqlGraphSql().getConnection()) {
+            getSqlGraphSql().deleteElementRows(conn, ElementType.VERTEX, vertex.getId());
+        } catch (SQLException e) {
+            throw new VertexiumException("could not delete: " + vertex.getId(), e);
+        }
+
+        if (hasEventListeners()) {
+            queueEvent(new DeleteVertexEvent(this, vertex));
+        }
     }
 
     @Override
     public void deleteEdge(Edge edge, Authorizations authorizations) {
-        throw new VertexiumException("not implemented");
+        checkNotNull(edge, "edge cannot be null");
+        getSearchIndex().deleteElement(this, edge, authorizations);
+
+        try (Connection conn = getSqlGraphSql().getConnection()) {
+            String outVertexId = edge.getVertexId(Direction.OUT);
+            String inVertexId = edge.getVertexId(Direction.IN);
+
+            getSqlGraphSql().deleteVertexEdgeRows(conn, outVertexId, edge.getId());
+            getSqlGraphSql().deleteVertexEdgeRows(conn, inVertexId, edge.getId());
+            getSqlGraphSql().deleteElementRows(conn, ElementType.EDGE, edge.getId());
+        } catch (SQLException e) {
+            throw new VertexiumException("could not delete edge", e);
+        }
+
+        if (hasEventListeners()) {
+            queueEvent(new DeleteEdgeEvent(this, edge));
+        }
     }
 
     @Override
@@ -467,7 +499,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
         try (Connection conn = getSqlGraphSql().getConnection()) {
             getSqlGraphSql().insertElementRow(conn, ElementType.VERTEX, vertex.getId(), RowType.VISIBLE_ELEMENT, timestamp, visibility, new ElementVisibleValue(visibility));
         } catch (SQLException e) {
-            throw new VertexiumException("Could not mark vertex visibile", e);
+            throw new VertexiumException("Could not mark vertex visible", e);
         }
 
         if (hasEventListeners()) {
@@ -527,7 +559,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
             getSqlGraphSql().insertElementRow(conn, ElementType.VERTEX, in.getId(), RowType.VISIBLE_EDGE_IN, timestamp, visibility, new EdgeInVisibleValue(edge.getId(), visibility));
             getSqlGraphSql().insertElementRow(conn, ElementType.EDGE, edge.getId(), RowType.VISIBLE_ELEMENT, timestamp, visibility, new ElementVisibleValue(visibility));
         } catch (SQLException ex) {
-            throw new VertexiumException("Could not mark edge visibile", ex);
+            throw new VertexiumException("Could not mark edge visible", ex);
         }
 
         if (out instanceof SqlVertex) {
@@ -544,7 +576,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
 
     @Override
     public Authorizations createAuthorizations(String... auths) {
-        throw new VertexiumException("not implemented");
+        throw new VertexiumException("TODO");
     }
 
     @Override
@@ -891,7 +923,7 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
             Long endTime,
             Authorizations authorizations
     ) {
-        throw new VertexiumException("not implemented");
+        throw new VertexiumException("TODO");
     }
 
     public void deleteProperty(SqlElement element, Property property, Authorizations authorizations) {

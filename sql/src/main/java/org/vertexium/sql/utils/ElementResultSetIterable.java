@@ -45,7 +45,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         this.authorizations = authorizations;
         visibilityEvaluator = new VisibilityEvaluator(authorizations.getAuthorizations());
     }
-    
+
     @Override
     protected T readFromResultSet(ResultSet rs) throws SQLException {
         if (rs.isBeforeFirst()) {

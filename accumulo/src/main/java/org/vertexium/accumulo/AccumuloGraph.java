@@ -819,7 +819,7 @@ public class AccumuloGraph extends GraphBaseWithSearchIndex implements Traceable
 
     @Override
     public void deleteEdge(Edge edge, Authorizations authorizations) {
-        checkNotNull(edge);
+        checkNotNull(edge, "edge cannot be null");
         Span trace = Trace.start("deleteEdge");
         trace.data("edgeId", edge.getId());
         try {
