@@ -125,18 +125,24 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
     protected ElementSignalValueBase getElementSignalValue(List<SqlGraphValueBase> values) {
         boolean includeHidden = fetchHints.contains(FetchHint.INCLUDE_HIDDEN);
 
-        ElementSignalValueBase lastElementSignalValueBase = null;
+        if (!includeHidden) {
+            Set<Visibility> hiddenVisibilities = new HashSet<>();
+            for (SqlGraphValueBase value : values) {
+                if (value instanceof ElementHiddenValue) {
+                    hiddenVisibilities.add(((ElementHiddenValue) value).getVisibility());
+                } else if (value instanceof ElementVisibleValue) {
+                    hiddenVisibilities.remove(((ElementVisibleValue) value).getVisibility());
+                }
+            }
+            if (hiddenVisibilities.size() > 0) {
+                return null;
+            }
+        }
+
         ElementSignalValueBase result = null;
         for (SqlGraphValueBase value : values) {
             if (value instanceof ElementSignalValueBase) {
-                lastElementSignalValueBase = (ElementSignalValueBase) value;
-                result = lastElementSignalValueBase;
-            } else if (!includeHidden && value instanceof ElementHiddenValue) {
-                result = null;
-            } else if (!includeHidden && value instanceof ElementVisibleValue) {
-                // TODO in accumulo graph marking an element visible is handled by deleting the previous
-                //      hidden row which ends up losing history.
-                result = lastElementSignalValueBase;
+                result = (ElementSignalValueBase) value;
             } else if (value instanceof SoftDeleteElementValue) {
                 result = null;
             }
