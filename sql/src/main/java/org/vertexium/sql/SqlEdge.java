@@ -87,11 +87,18 @@ public class SqlEdge extends SqlElement implements Edge {
 
     @Override
     public Vertex getOtherVertex(String myVertexId, EnumSet<FetchHint> fetchHints, Authorizations authorizations) {
-        throw new VertexiumException("TODO");
+        return getGraph().getVertex(getOtherVertexId(myVertexId), fetchHints, authorizations);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ExistingEdgeMutation prepareMutation() {
-        throw new VertexiumException("TODO");
+        return new ExistingEdgeMutation(this) {
+            @Override
+            public Edge save(Authorizations authorizations) {
+                getGraph().saveExistingElementMutation(this, authorizations);
+                return getElement();
+            }
+        };
     }
 }
