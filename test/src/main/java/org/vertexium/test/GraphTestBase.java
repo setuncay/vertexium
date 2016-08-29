@@ -487,9 +487,9 @@ public abstract class GraphTestBase {
                 .deleteProperties("prop1")
                 .save(AUTHORIZATIONS_A_AND_B);
         graph.flush();
-        Assert.assertEquals(1, count(v1.getProperties()));
+        Assert.assertEquals("should only contain prop2", 1, count(v1.getProperties()));
         v1 = graph.getVertex("v1", AUTHORIZATIONS_A);
-        Assert.assertEquals(1, count(v1.getProperties()));
+        Assert.assertEquals("should only contain prop2", 1, count(v1.getProperties()));
 
         Assert.assertEquals(1, count(graph.query(AUTHORIZATIONS_A_AND_B).has("prop2", "value2a").vertices()));
         Assert.assertEquals(0, count(graph.query(AUTHORIZATIONS_A_AND_B).has("prop1", "value1a").vertices()));

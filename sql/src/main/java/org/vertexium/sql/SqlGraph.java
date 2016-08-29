@@ -831,10 +831,16 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
         String elementRowKey = element.getId();
         long timestamp = IncreasingTime.currentTimeMillis();
 
-        // TODO
-//        for (PropertyDeleteMutation propertyDelete : propertyDeletes) {
-//            elementMutationBuilder.addPropertyDeleteToMutation(m, propertyDelete);
-//        }
+        for (PropertyDeleteMutation propertyDelete : propertyDeletes) {
+            getSqlGraphSql().deletePropertyRows(
+                    conn,
+                    elementType,
+                    element.getId(),
+                    propertyDelete.getKey(),
+                    propertyDelete.getName(),
+                    propertyDelete.getVisibility()
+            );
+        }
         for (PropertySoftDeleteMutation propertySoftDelete : propertySoftDeletes) {
             SqlGraphValueBase value = new PropertySoftDeleteValue(
                     propertySoftDelete.getKey(),
