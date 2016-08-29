@@ -134,6 +134,8 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
             } else if (!includeHidden && value instanceof ElementHiddenValue) {
                 result = null;
             } else if (!includeHidden && value instanceof ElementVisibleValue) {
+                // TODO in accumulo graph marking an element visible is handled by deleting the previous
+                //      hidden row which ends up losing history.
                 result = lastElementSignalValueBase;
             } else if (value instanceof SoftDeleteElementValue) {
                 result = null;

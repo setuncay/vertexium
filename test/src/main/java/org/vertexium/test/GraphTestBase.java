@@ -3897,7 +3897,7 @@ public abstract class GraphTestBase {
                     .prepareMutation()
                     .alterPropertyVisibility("propBad", VISIBILITY_B)
                     .save(AUTHORIZATIONS_A_AND_B);
-            fail("show throw");
+            fail("should throw");
         } catch (VertexiumException ex) {
             assertNotNull(ex);
         }
