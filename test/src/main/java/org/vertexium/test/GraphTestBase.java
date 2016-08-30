@@ -270,11 +270,11 @@ public abstract class GraphTestBase {
         graph.flush();
 
         v = graph.getVertex("v1", AUTHORIZATIONS_A);
-        Assert.assertEquals(1, count(v.getProperties("prop1")));
+        Assert.assertEquals("prop1 should be the only property", 1, count(v.getProperties("prop1")));
         prop1 = v.getProperties("prop1").iterator().next();
-        assertEquals("value2", prop1.getValue());
+        assertEquals("value should be the new value", "value2", prop1.getValue());
         prop1Metadata = prop1.getMetadata();
-        assertEquals(0, prop1Metadata.entrySet().size());
+        assertEquals("metadata should be empty after a setProperty with no metadata", 0, prop1Metadata.entrySet().size());
     }
 
     @Test

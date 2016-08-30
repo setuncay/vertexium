@@ -9,6 +9,7 @@ public class PropertyMetadataValue extends PropertyValueBase {
     private final Object value;
     private final String key;
     private final Visibility visibility;
+    private final long timestamp;
 
     public PropertyMetadataValue(
             String propertyKey,
@@ -16,22 +17,25 @@ public class PropertyMetadataValue extends PropertyValueBase {
             Visibility propertyVisibility,
             String key,
             Object value,
-            Visibility visibility
+            Visibility visibility,
+            long timestamp
     ) {
         super(propertyKey, propertyName, propertyVisibility);
         this.key = key;
         this.value = value;
         this.visibility = visibility;
+        this.timestamp = timestamp;
     }
 
-    public PropertyMetadataValue(Property property, Metadata.Entry metadataEntry) {
+    public PropertyMetadataValue(Property property, Metadata.Entry metadataEntry, long timestamp) {
         this(
                 property.getKey(),
                 property.getName(),
                 property.getVisibility(),
                 metadataEntry.getKey(),
                 metadataEntry.getValue(),
-                metadataEntry.getVisibility()
+                metadataEntry.getVisibility(),
+                timestamp
         );
     }
 
@@ -47,6 +51,10 @@ public class PropertyMetadataValue extends PropertyValueBase {
         return visibility;
     }
 
+    public long getTimestamp() {
+        return timestamp;
+    }
+
     @Override
     public String toString() {
         return "PropertyValueValue{" +
@@ -55,6 +63,7 @@ public class PropertyMetadataValue extends PropertyValueBase {
                 ", propertyVisibility=" + getPropertyVisibility() +
                 ", key=" + getKey() +
                 ", visibility=" + getVisibility() +
+                ", timestamp=" + getTimestamp() +
                 '}';
     }
 }

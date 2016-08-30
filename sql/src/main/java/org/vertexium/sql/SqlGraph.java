@@ -168,9 +168,14 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
         insertElementPropertyMetadata(conn, elementType, elementId, property);
     }
 
-    private void insertElementPropertyMetadata(Connection conn, ElementType elementType, String elementId, Property property) {
+    private void insertElementPropertyMetadata(
+            Connection conn,
+            ElementType elementType,
+            String elementId,
+            Property property
+    ) {
         for (Metadata.Entry entry : property.getMetadata().entrySet()) {
-            insertElementPropertyMetadataRow(conn, elementType, elementId, property, entry);
+            insertElementPropertyMetadataRow(conn, elementType, elementId, property, entry, property.getTimestamp());
         }
     }
 
@@ -179,9 +184,10 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
             ElementType elementType,
             String elementId,
             Property property,
-            Metadata.Entry metadataEntry
+            Metadata.Entry metadataEntry,
+            long timestamp
     ) {
-        PropertyMetadataValue metadataValue = new PropertyMetadataValue(property, metadataEntry);
+        PropertyMetadataValue metadataValue = new PropertyMetadataValue(property, metadataEntry, timestamp);
         getSqlGraphSql().insertElementRow(
                 conn,
                 elementType,

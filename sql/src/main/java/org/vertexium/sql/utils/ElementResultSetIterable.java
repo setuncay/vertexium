@@ -160,7 +160,8 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
                         values,
                         v.getPropertyKey(),
                         v.getPropertyName(),
-                        v.getPropertyVisibility()
+                        v.getPropertyVisibility(),
+                        v.getTimestamp()
                 );
 
                 Set<Visibility> propertyHiddenVisibilities = null;
@@ -225,7 +226,8 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
             List<SqlGraphValueBase> values,
             String propertyKey,
             String propertyName,
-            Visibility propertyVisibility
+            Visibility propertyVisibility,
+            long timestamp
     ) {
         Metadata metadata = new Metadata();
         for (SqlGraphValueBase value : values) {
@@ -233,6 +235,9 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
                 continue;
             }
             PropertyMetadataValue pmv = (PropertyMetadataValue) value;
+            if (pmv.getTimestamp() < timestamp) {
+                continue;
+            }
             if (!propertyKey.equals(pmv.getPropertyKey())) {
                 continue;
             }
