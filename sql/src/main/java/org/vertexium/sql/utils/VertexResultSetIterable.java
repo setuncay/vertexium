@@ -52,6 +52,8 @@ public class VertexResultSetIterable extends ElementResultSetIterable<Vertex> {
     }
 
     private List<EdgeInfo> getEdgeInfos(List<SqlGraphValueBase> values, Direction direction) {
+        boolean includeHidden = getFetchHints().contains(FetchHint.INCLUDE_HIDDEN);
+
         List<EdgeInfo> edgeInfos = new ArrayList<>();
         Set<String> edgeIdsToRemove = new HashSet<>();
         for (SqlGraphValueBase value : values) {
@@ -66,9 +68,9 @@ public class VertexResultSetIterable extends ElementResultSetIterable<Vertex> {
                         edgeInfos.remove(i);
                     }
                 }
-            } else if (value instanceof EdgeInOutHiddenValue) {
+            } else if (!includeHidden && value instanceof EdgeInOutHiddenValue) {
                 edgeIdsToRemove.add(((EdgeInOutHiddenValue) value).getEdgeId());
-            } else if (value instanceof EdgeInOutVisibleValue) {
+            } else if (!includeHidden && value instanceof EdgeInOutVisibleValue) {
                 edgeIdsToRemove.remove(((EdgeInOutVisibleValue) value).getEdgeId());
             }
         }

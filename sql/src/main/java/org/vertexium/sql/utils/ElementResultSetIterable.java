@@ -324,6 +324,10 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         }
     }
 
+    protected EnumSet<FetchHint> getFetchHints() {
+        return fetchHints;
+    }
+
     private static class PropertyMapKey {
         private final String propertyKey;
         private final String propertyName;
