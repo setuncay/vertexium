@@ -935,7 +935,22 @@ public class SqlGraph extends GraphBaseWithSearchIndex {
             Long endTime,
             Authorizations authorizations
     ) {
-        throw new VertexiumException("TODO");
+        try (Connection conn = getSqlGraphSql().getConnection()) {
+            List<PropertyValueBase> values = getSqlGraphSql().selectAllValues(
+                    conn,
+                    ElementType.getTypeFromElement(sqlElement),
+                    sqlElement.getId(),
+                    startTime,
+                    endTime,
+                    authorizations
+            );
+            for (PropertyValueBase value : values) {
+                value.toString();
+            }
+            throw new VertexiumException("TODO");
+        } catch (SQLException e) {
+            throw new VertexiumException("could not get historical property values", e);
+        }
     }
 
     public void deleteProperty(SqlElement element, Property property, Authorizations authorizations) {

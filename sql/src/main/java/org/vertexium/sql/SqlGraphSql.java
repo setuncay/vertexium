@@ -2,12 +2,14 @@ package org.vertexium.sql;
 
 import org.vertexium.*;
 import org.vertexium.property.StreamingPropertyValue;
+import org.vertexium.sql.models.PropertyValueBase;
 import org.vertexium.sql.models.SqlGraphValueBase;
 import org.vertexium.sql.utils.RowType;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.EnumSet;
+import java.util.List;
 
 public interface SqlGraphSql {
     Connection getConnection() throws SQLException;
@@ -47,4 +49,13 @@ public interface SqlGraphSql {
     void deleteElementRows(Connection conn, ElementType elementType, String elementId);
 
     void deleteVertexEdgeRows(Connection conn, String vertexId, String edgeId);
+
+    List<PropertyValueBase> selectAllValues(
+            Connection conn,
+            ElementType elementType,
+            String elementId,
+            Long startTime,
+            Long endTime,
+            Authorizations authorizations
+    );
 }

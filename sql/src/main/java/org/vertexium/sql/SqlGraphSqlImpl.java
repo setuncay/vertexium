@@ -230,6 +230,50 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
         }
     }
 
+    @Override
+    public List<PropertyValueBase> selectAllValues(
+            Connection conn,
+            ElementType elementType,
+            final String elementId,
+            final Long startTime,
+            final Long endTime,
+            Authorizations authorizations
+    ) {
+        String tableName = getTableNameFromElementType(elementType);
+        String sql = String.format(
+                "SELECT * FROM %s WHERE %s=? %s %s",
+                tableName,
+                SqlElement.COLUMN_ID,
+                startTime == null ? "" : String.format(" AND %s >= ?", SqlElement.COLUMN_TIMESTAMP),
+                endTime == null ? "" : String.format(" AND %s <= ?", SqlElement.COLUMN_TIMESTAMP)
+        );
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            int i = 1;
+            stmt.setString(i++, elementId);
+            if (startTime != null) {
+                stmt.setLong(i++, startTime);
+            }
+            if (endTime != null) {
+                stmt.setLong(i, endTime);
+            }
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                List<PropertyValueBase> values = new ArrayList<>();
+                while (rs.next()) {
+                    byte[] valueBytes = rs.getBytes(SqlElement.COLUMN_VALUE);
+                    Object valueObject = serializer.bytesToObject(valueBytes);
+                    if (!(valueObject instanceof PropertyValueBase)) {
+                        continue;
+                    }
+                    values.add((PropertyValueBase) valueObject);
+                }
+                return values;
+            }
+        } catch (SQLException e) {
+            throw new VertexiumException("Cannot get select all values", e);
+        }
+    }
+
     private void deleteRowsByPrimaryKeys(Connection conn, String tableName, List<Long> toDelete) throws SQLException {
         String sql;
         for (Long pk : toDelete) {
