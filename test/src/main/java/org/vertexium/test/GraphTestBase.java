@@ -5258,7 +5258,7 @@ public abstract class GraphTestBase {
             String edgeId = "e" + i;
             String outVertexId = "v" + random.nextInt(vertexCount);
             String inVertexId = "v" + random.nextInt(vertexCount);
-            graph.addEdge(edgeId, outVertexId, inVertexId, VISIBILITY_A, AUTHORIZATIONS_ALL);
+            graph.addEdge(edgeId, outVertexId, inVertexId, "label", VISIBILITY_A, AUTHORIZATIONS_ALL);
         }
         graph.flush();
         double endTime = System.currentTimeMillis();
