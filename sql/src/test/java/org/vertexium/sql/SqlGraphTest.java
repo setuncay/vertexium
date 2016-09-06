@@ -9,6 +9,8 @@ import org.vertexium.*;
 import org.vertexium.id.UUIDIdGenerator;
 import org.vertexium.search.DefaultSearchIndex;
 import org.vertexium.test.GraphTestBase;
+import org.vertexium.util.VertexiumLogger;
+import org.vertexium.util.VertexiumLoggerFactory;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -18,6 +20,7 @@ import java.util.Map;
 
 @RunWith(JUnit4.class)
 public class SqlGraphTest extends GraphTestBase {
+    private static final VertexiumLogger LOGGER = VertexiumLoggerFactory.getLogger(SqlGraphTest.class);
     private Path dbTempDir;
     private Map<String, String> config;
 
@@ -25,6 +28,7 @@ public class SqlGraphTest extends GraphTestBase {
     public void before() throws Exception {
         dbTempDir = Files.createTempDirectory(SqlGraphTest.class.getName());
         String dbFilePath = new File(dbTempDir.toFile(), "test.h2").getAbsolutePath();
+        LOGGER.info("dbFilePath: %s", dbFilePath);
 
         config = new HashMap<>();
         config.put("", SqlGraph.class.getName());

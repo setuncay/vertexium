@@ -27,6 +27,15 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
     private final VertexiumSerializer serializer;
     private final Authorizations authorizations;
     private final VisibilityEvaluator visibilityEvaluator;
+    protected ElementSignalValueBase elementSignalValue = null;
+    protected final Map<PropertyMapKey, PropertyDeleteMutation> propertyDeleteMutations = new HashMap<>();
+    protected final Map<PropertyMapKey, PropertySoftDeleteMutation> propertySoftDeleteMutations = new HashMap<>();
+    protected final Map<PropertyMapKey, Property> properties = new HashMap<>();
+    protected final Set<PropertyMapKey> propertyMapKeysToRemove = new HashSet<>();
+    protected final Map<PropertyMapKey, Metadata> propertyMetadatas = new HashMap<>();
+    protected final List<Visibility> hiddenVisibilities = new ArrayList<>();
+
+    protected final boolean includeHidden;
 
     public ElementResultSetIterable(
             SqlGraphSql sqlGraphSql,
@@ -44,6 +53,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
         this.serializer = serializer;
         this.authorizations = authorizations;
         visibilityEvaluator = new VisibilityEvaluator(authorizations.getAuthorizations());
+        includeHidden = fetchHints.contains(FetchHint.INCLUDE_HIDDEN);
     }
 
     @Override
@@ -67,7 +77,7 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
     private T readElement(ResultSet rs) throws SQLException {
         boolean first = true;
         String id = null;
-        List<SqlGraphValueBase> values = new ArrayList<>();
+        clear();
 
         while (true) {
             if (!first && !rs.getString(SqlElement.COLUMN_ID).equals(id)) {
@@ -95,20 +105,110 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
             byte[] valueBytes = rs.getBytes(SqlElement.COLUMN_VALUE);
             Object valueObject = serializer.bytesToObject(valueBytes);
             if (!(valueObject instanceof SqlGraphValueBase)) {
-                throw new VertexiumException("Invalid valud object type: " + valueObject.getClass().getName());
+                throw new VertexiumException("Invalid valid object type: " + valueObject.getClass().getName());
             }
             SqlGraphValueBase value = (SqlGraphValueBase) valueObject;
-            values.add(value);
+            addValue(value);
 
             if (!rs.next()) {
                 break;
             }
         }
 
-        return createElement(id, values);
+        if (!includeHidden && hiddenVisibilities.size() > 0) {
+            return null;
+        }
+
+        if (elementSignalValue == null) {
+            return null;
+        }
+
+        for (PropertyMapKey propertyMapKey : propertyMapKeysToRemove) {
+            properties.remove(propertyMapKey);
+        }
+
+        return createElement(id);
     }
 
-    protected abstract T createElement(String id, List<SqlGraphValueBase> values);
+    protected void clear() {
+        elementSignalValue = null;
+        properties.clear();
+        propertyMapKeysToRemove.clear();
+        propertyMetadatas.clear();
+        propertyDeleteMutations.clear();
+        propertySoftDeleteMutations.clear();
+        hiddenVisibilities.clear();
+    }
+
+    protected void addValue(SqlGraphValueBase value) {
+        if (value instanceof ElementHiddenValue) {
+            hiddenVisibilities.add(((ElementHiddenValue) value).getVisibility());
+        } else if (value instanceof ElementVisibleValue) {
+            hiddenVisibilities.remove(((ElementVisibleValue) value).getVisibility());
+        } else if (value instanceof ElementSignalValueBase) {
+            elementSignalValue = (ElementSignalValueBase) value;
+        } else if (value instanceof SoftDeleteElementValue) {
+            elementSignalValue = null;
+        } else if (value instanceof PropertySoftDeleteValue) {
+            PropertySoftDeleteValue propertySoftDeleteValue = (PropertySoftDeleteValue) value;
+            PropertyMapKey propertyMapKey = new PropertyMapKey(propertySoftDeleteValue);
+            PropertySoftDeleteMutation propertySoftDeleteMutation = new KeyNameVisibilityPropertySoftDeleteMutation(
+                    propertySoftDeleteValue.getPropertyKey(),
+                    propertySoftDeleteValue.getPropertyName(),
+                    propertySoftDeleteValue.getPropertyVisibility()
+            );
+            propertySoftDeleteMutations.put(propertyMapKey, propertySoftDeleteMutation);
+            properties.remove(propertyMapKey);
+            propertyMetadatas.remove(propertyMapKey);
+        } else if (value instanceof PropertyValueValue) {
+            PropertyValueValue v = (PropertyValueValue) value;
+            PropertyMapKey propertyMapKey = new PropertyMapKey(v);
+            Metadata propertyMetadata = propertyMetadatas.get(propertyMapKey);
+            if (propertyMetadata == null) {
+                propertyMetadata = new Metadata();
+                propertyMetadatas.put(propertyMapKey, propertyMetadata);
+            }
+
+            Set<Visibility> propertyHiddenVisibilities = null;
+            Object propertyValue = v.getValue();
+
+            if (propertyValue instanceof SqlStreamingPropertyValueRef) {
+                SqlStreamingPropertyValueRef sspvr = (SqlStreamingPropertyValueRef) propertyValue;
+                Class valueType = sspvr.getValueType();
+                long length = sspvr.getLength();
+                propertyValue = new SqlStreamingPropertyValue(getGraph(), sspvr, valueType, length);
+            }
+
+            Property property = new MutablePropertyImpl(
+                    v.getPropertyKey(),
+                    v.getPropertyName(),
+                    propertyValue,
+                    propertyMetadata,
+                    v.getTimestamp(),
+                    propertyHiddenVisibilities,
+                    v.getPropertyVisibility()
+            );
+            properties.put(propertyMapKey, property);
+            propertySoftDeleteMutations.remove(propertyMapKey);
+        } else if (value instanceof PropertyHiddenValue) {
+            PropertyHiddenValue phv = (PropertyHiddenValue) value;
+            applyHiddenToProperty(properties, phv, propertyMapKeysToRemove);
+        } else if (value instanceof PropertyVisibleValue) {
+            PropertyVisibleValue pvv = (PropertyVisibleValue) value;
+            applyVisibleToProperty(properties, pvv, propertyMapKeysToRemove);
+        } else if (value instanceof PropertyMetadataValue) {
+            PropertyMetadataValue pmv = (PropertyMetadataValue) value;
+            PropertyMapKey propertyMapKey = new PropertyMapKey(pmv);
+            Metadata propertyMetadata = propertyMetadatas.get(propertyMapKey);
+            if (propertyMetadata == null) {
+                propertyMetadata = new Metadata();
+                propertyMetadatas.put(propertyMapKey, propertyMetadata);
+            }
+            propertyMetadata.add(pmv.getKey(), pmv.getValue(), pmv.getVisibility());
+        }
+    }
+
+    protected abstract T createElement(String id);
 
     protected SqlGraph getGraph() {
         return graph;
@@ -120,84 +220,6 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
 
     protected VertexiumSerializer getSerializer() {
         return serializer;
-    }
-
-    protected ElementSignalValueBase getElementSignalValue(List<SqlGraphValueBase> values) {
-        boolean includeHidden = fetchHints.contains(FetchHint.INCLUDE_HIDDEN);
-
-        if (!includeHidden) {
-            Set<Visibility> hiddenVisibilities = new HashSet<>();
-            for (SqlGraphValueBase value : values) {
-                if (value instanceof ElementHiddenValue) {
-                    hiddenVisibilities.add(((ElementHiddenValue) value).getVisibility());
-                } else if (value instanceof ElementVisibleValue) {
-                    hiddenVisibilities.remove(((ElementVisibleValue) value).getVisibility());
-                }
-            }
-            if (hiddenVisibilities.size() > 0) {
-                return null;
-            }
-        }
-
-        ElementSignalValueBase result = null;
-        for (SqlGraphValueBase value : values) {
-            if (value instanceof ElementSignalValueBase) {
-                result = (ElementSignalValueBase) value;
-            } else if (value instanceof SoftDeleteElementValue) {
-                result = null;
-            }
-        }
-        return result;
-    }
-
-    protected Collection<Property> getProperties(List<SqlGraphValueBase> values) {
-        Map<PropertyMapKey, Property> properties = new HashMap<>();
-        Set<PropertyMapKey> propertyMapKeysToRemove = new HashSet<>();
-        for (SqlGraphValueBase value : values) {
-            if (value instanceof PropertyValueValue) {
-                PropertyValueValue v = (PropertyValueValue) value;
-                Metadata propertyMetadata = getPropertyMetadata(
-                        values,
-                        v.getPropertyKey(),
-                        v.getPropertyName(),
-                        v.getPropertyVisibility(),
-                        v.getTimestamp()
-                );
-
-                Set<Visibility> propertyHiddenVisibilities = null;
-                Object propertyValue = v.getValue();
-
-                if (propertyValue instanceof SqlStreamingPropertyValueRef) {
-                    SqlStreamingPropertyValueRef sspvr = (SqlStreamingPropertyValueRef) propertyValue;
-                    Class valueType = sspvr.getValueType();
-                    long length = sspvr.getLength();
-                    propertyValue = new SqlStreamingPropertyValue(getGraph(), sspvr, valueType, length);
-                }
-
-                Property property = new MutablePropertyImpl(
-                        v.getPropertyKey(),
-                        v.getPropertyName(),
-                        propertyValue,
-                        propertyMetadata,
-                        v.getTimestamp(),
-                        propertyHiddenVisibilities,
-                        v.getPropertyVisibility()
-                );
-                properties.put(new PropertyMapKey(property), property);
-            } else if (value instanceof PropertyHiddenValue) {
-                PropertyHiddenValue phv = (PropertyHiddenValue) value;
-                applyHiddenToProperty(properties, phv, propertyMapKeysToRemove);
-            } else if (value instanceof PropertyVisibleValue) {
-                PropertyVisibleValue pvv = (PropertyVisibleValue) value;
-                applyVisibleToProperty(properties, pvv, propertyMapKeysToRemove);
-            }
-        }
-
-        for (PropertyMapKey propertyMapKey : propertyMapKeysToRemove) {
-            properties.remove(propertyMapKey);
-        }
-
-        return properties.values();
     }
 
     private void applyHiddenToProperty(Map<PropertyMapKey, Property> properties, PropertyHiddenValue phv, Set<PropertyMapKey> propertyMapKeysToRemove) {
@@ -220,87 +242,6 @@ public abstract class ElementResultSetIterable<T extends Element> extends SqlGra
             ((MutablePropertyImpl) property).removeHiddenVisibility(pvv.getHiddenVisibility());
         }
         propertyMapKeysToRemove.remove(propertyMapKey);
-    }
-
-    private Metadata getPropertyMetadata(
-            List<SqlGraphValueBase> values,
-            String propertyKey,
-            String propertyName,
-            Visibility propertyVisibility,
-            long timestamp
-    ) {
-        Metadata metadata = new Metadata();
-        for (SqlGraphValueBase value : values) {
-            if (!(value instanceof PropertyMetadataValue)) {
-                continue;
-            }
-            PropertyMetadataValue pmv = (PropertyMetadataValue) value;
-            if (pmv.getTimestamp() < timestamp) {
-                continue;
-            }
-            if (!propertyKey.equals(pmv.getPropertyKey())) {
-                continue;
-            }
-            if (!propertyName.equals(pmv.getPropertyName())) {
-                continue;
-            }
-            if (!propertyVisibility.equals(pmv.getPropertyVisibility())) {
-                continue;
-            }
-            metadata.add(pmv.getKey(), pmv.getValue(), pmv.getVisibility());
-        }
-        return metadata;
-    }
-
-    protected List<PropertyDeleteMutation> getPropertyDeleteMutation(List<SqlGraphValueBase> values) {
-        // TODO
-        return new ArrayList<>();
-    }
-
-    protected List<PropertySoftDeleteMutation> getPropertySoftDeleteMutation(
-            List<SqlGraphValueBase> values,
-            Collection<Property> properties
-    ) {
-        List<PropertySoftDeleteMutation> results = new ArrayList<>();
-        for (SqlGraphValueBase value : values) {
-            if (value instanceof PropertySoftDeleteValue) {
-                PropertySoftDeleteValue psdv = (PropertySoftDeleteValue) value;
-                if (isPropertyDefinedAfter(properties, psdv)) {
-                    continue;
-                }
-                PropertySoftDeleteMutation psdm = new KeyNameVisibilityPropertySoftDeleteMutation(
-                        psdv.getPropertyKey(),
-                        psdv.getPropertyName(),
-                        psdv.getPropertyVisibility()
-                );
-                results.add(psdm);
-            }
-        }
-        return results;
-    }
-
-    private boolean isPropertyDefinedAfter(Collection<Property> properties, PropertySoftDeleteValue psdv) {
-        for (Property property : properties) {
-            if (property.getKey().equals(psdv.getPropertyKey())
-                    && property.getName().equals(psdv.getPropertyName())
-                    && property.getVisibility().equals(psdv.getPropertyVisibility())) {
-                if (property.getTimestamp() > psdv.getTimestamp()) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    protected List<Visibility> getHiddenVisibilities(List<SqlGraphValueBase> values) {
-        List<Visibility> results = new ArrayList<>();
-        for (SqlGraphValueBase value : values) {
-            if (value instanceof ElementHiddenValue) {
-                ElementHiddenValue ehv = (ElementHiddenValue) value;
-                results.add(ehv.getVisibility());
-            }
-        }
-        return results;
     }
 
     @SuppressWarnings("unchecked")

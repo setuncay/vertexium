@@ -1,19 +1,19 @@
 package org.vertexium.sql.utils;
 
-import org.vertexium.*;
-import org.vertexium.mutation.PropertyDeleteMutation;
-import org.vertexium.mutation.PropertySoftDeleteMutation;
+import org.vertexium.Authorizations;
+import org.vertexium.Edge;
+import org.vertexium.FetchHint;
+import org.vertexium.VertexiumSerializer;
 import org.vertexium.sql.SqlEdge;
 import org.vertexium.sql.SqlGraph;
 import org.vertexium.sql.SqlGraphSql;
 import org.vertexium.sql.models.EdgeSignalValue;
-import org.vertexium.sql.models.SqlGraphValueBase;
 
-import java.util.Collection;
 import java.util.EnumSet;
-import java.util.List;
 
 public class EdgeResultSetIterable extends ElementResultSetIterable<Edge> {
+    private String newEdgeLabel;
+
     public EdgeResultSetIterable(
             SqlGraphSql sqlGraphSql,
             SqlGraph graph,
@@ -27,30 +27,26 @@ public class EdgeResultSetIterable extends ElementResultSetIterable<Edge> {
     }
 
     @Override
-    protected Edge createElement(String id, List<SqlGraphValueBase> values) {
-        EdgeSignalValue edgeSignalValue = (EdgeSignalValue) getElementSignalValue(values);
-        if (edgeSignalValue == null) {
-            return null;
-        }
-        String newEdgeLabel = null;
-        Collection<Property> properties = getProperties(values);
-        List<PropertyDeleteMutation> propertyDeleteMutations = getPropertyDeleteMutation(values);
-        List<PropertySoftDeleteMutation> propertySoftDeleteMutations = getPropertySoftDeleteMutation(values, properties);
-        List<Visibility> hiddenVisibilities = getHiddenVisibilities(values);
+    protected void clear() {
+        super.clear();
+        newEdgeLabel = null;
+    }
 
+    @Override
+    protected Edge createElement(String id) {
         return new SqlEdge(
                 getGraph(),
                 id,
-                edgeSignalValue.getOutVertexId(),
-                edgeSignalValue.getInVertexId(),
-                edgeSignalValue.getEdgeLabel(),
+                ((EdgeSignalValue) elementSignalValue).getOutVertexId(),
+                ((EdgeSignalValue) elementSignalValue).getInVertexId(),
+                ((EdgeSignalValue) elementSignalValue).getEdgeLabel(),
                 newEdgeLabel,
-                edgeSignalValue.getVisibility(),
-                properties,
-                propertyDeleteMutations,
-                propertySoftDeleteMutations,
+                elementSignalValue.getVisibility(),
+                properties.values(),
+                propertyDeleteMutations.values(),
+                propertySoftDeleteMutations.values(),
                 hiddenVisibilities,
-                edgeSignalValue.getTimestamp(),
+                elementSignalValue.getTimestamp(),
                 getAuthorizations()
         );
     }

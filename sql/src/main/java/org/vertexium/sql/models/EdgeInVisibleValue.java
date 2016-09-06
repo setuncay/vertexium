@@ -1,5 +1,6 @@
 package org.vertexium.sql.models;
 
+import org.vertexium.Direction;
 import org.vertexium.Visibility;
 
 public class EdgeInVisibleValue extends EdgeInOutVisibleValue {
@@ -7,5 +8,10 @@ public class EdgeInVisibleValue extends EdgeInOutVisibleValue {
 
     public EdgeInVisibleValue(String edgeId, Visibility visibility) {
         super(edgeId, visibility);
+    }
+
+    @Override
+    public Direction getDirection() {
+        return Direction.IN;
     }
 }

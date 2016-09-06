@@ -72,9 +72,11 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
                         ")",
                 tableName
         );
-        runSql(conn, sql, tableName);
+        if (!doesTableExist(conn, tableName)) {
+            runSql(conn, sql, tableName);
+        }
 
-        createColumnIndexes(conn, tableName, SqlElement.COLUMN_ID);
+        createColumnIndexes(conn, tableName, SqlElement.COLUMN_ID, SqlElement.COLUMN_TIMESTAMP);
     }
 
     protected void createVertexTable(Connection conn) {
@@ -89,7 +91,9 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
                 metadataTableName,
                 BIG_BIN_COLUMN_TYPE
         );
-        runSql(conn, sql, metadataTableName);
+        if (!doesTableExist(conn, metadataTableName)) {
+            runSql(conn, sql, metadataTableName);
+        }
     }
 
     protected void createStreamingPropertiesTable(Connection conn) {
@@ -103,7 +107,9 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
                         ")",
                 tableName
         );
-        runSql(conn, sql, tableName);
+        if (!doesTableExist(conn, tableName)) {
+            runSql(conn, sql, tableName);
+        }
     }
 
     protected static void createColumnIndexes(Connection conn, String tableName, String... columnNames) {
@@ -116,25 +122,27 @@ public class SqlGraphSqlImpl implements SqlGraphSql {
 
     protected static void runSql(Connection conn, String sql, String tableName) {
         try {
-            if (!doesTableExist(conn, tableName)) {
-                LOGGER.info("creating table %s (sql: %s)", tableName, sql);
-                try (Statement stmt = conn.createStatement()) {
-                    stmt.execute(sql);
-                }
+            LOGGER.info("running sql: %s", tableName, sql);
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(sql);
             }
         } catch (SQLException ex) {
             throw new VertexiumException("Could not create SQL table: " + tableName + " (sql: " + sql + ")", ex);
         }
     }
 
-    protected static boolean doesTableExist(Connection conn, String tableName) throws SQLException {
-        ResultSet tables = conn.getMetaData().getTables(null, null, "%", null);
-        while (tables.next()) {
-            if (tableName.equalsIgnoreCase(tables.getString(GET_TABLES_TABLE_NAME_COLUMN))) {
-                return true;
+    protected static boolean doesTableExist(Connection conn, String tableName) {
+        try {
+            ResultSet tables = conn.getMetaData().getTables(null, null, "%", null);
+            while (tables.next()) {
+                if (tableName.equalsIgnoreCase(tables.getString(GET_TABLES_TABLE_NAME_COLUMN))) {
+                    return true;
+                }
             }
+            return false;
+        } catch (SQLException ex) {
+            throw new VertexiumException("Could not determine if table exists: " + tableName, ex);
         }
-        return false;
     }
 
     @Override

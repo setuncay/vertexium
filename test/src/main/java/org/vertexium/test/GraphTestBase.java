@@ -4,7 +4,6 @@ package org.vertexium.test;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.io.IOUtils;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -5237,7 +5236,12 @@ public abstract class GraphTestBase {
         int edgeCount = 10000;
         int findVerticesByIdCount = 10000;
 
-        // add vertices
+        benchmarkAddVertices(vertexCount);
+        benchmarkAddEdges(random, vertexCount, edgeCount);
+        benchmarkFindVerticesById(random, vertexCount, findVerticesByIdCount);
+    }
+
+    private void benchmarkAddVertices(int vertexCount) {
         double startTime = System.currentTimeMillis();
         for (int i = 0; i < vertexCount; i++) {
             String vertexId = "v" + i;
@@ -5246,9 +5250,10 @@ public abstract class GraphTestBase {
         graph.flush();
         double endTime = System.currentTimeMillis();
         LOGGER.info("add vertices in %.3fs", (endTime - startTime) / 1000);
+    }
 
-        // add edges
-        startTime = System.currentTimeMillis();
+    private void benchmarkAddEdges(Random random, int vertexCount, int edgeCount) {
+        double startTime = System.currentTimeMillis();
         for (int i = 0; i < edgeCount; i++) {
             String edgeId = "e" + i;
             String outVertexId = "v" + random.nextInt(vertexCount);
@@ -5256,17 +5261,18 @@ public abstract class GraphTestBase {
             graph.addEdge(edgeId, outVertexId, inVertexId, VISIBILITY_A, AUTHORIZATIONS_ALL);
         }
         graph.flush();
-        endTime = System.currentTimeMillis();
+        double endTime = System.currentTimeMillis();
         LOGGER.info("add edges in %.3fs", (endTime - startTime) / 1000);
+    }
 
-        // find vertices by id
-        startTime = System.currentTimeMillis();
+    private void benchmarkFindVerticesById(Random random, int vertexCount, int findVerticesByIdCount) {
+        double startTime = System.currentTimeMillis();
         for (int i = 0; i < findVerticesByIdCount; i++) {
             String vertexId = "v" + random.nextInt(vertexCount);
             graph.getVertex(vertexId, AUTHORIZATIONS_ALL);
         }
         graph.flush();
-        endTime = System.currentTimeMillis();
+        double endTime = System.currentTimeMillis();
         LOGGER.info("find vertices by id in %.3fs", (endTime - startTime) / 1000);
     }
 

@@ -1,5 +1,6 @@
 package org.vertexium.sql.models;
 
+import org.vertexium.Direction;
 import org.vertexium.Visibility;
 
 public abstract class EdgeInOutVisibleValue extends VertexTableEdgeValueBase {
@@ -22,4 +23,6 @@ public abstract class EdgeInOutVisibleValue extends VertexTableEdgeValueBase {
                 "visibility='" + visibility + '\'' +
                 '}';
     }
+
+    public abstract Direction getDirection();
 }
