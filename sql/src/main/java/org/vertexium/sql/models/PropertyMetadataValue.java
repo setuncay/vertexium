@@ -8,7 +8,7 @@ public class PropertyMetadataValue extends PropertyValueBase {
     private static final long serialVersionUID = -3301706159732174712L;
     private final Object value;
     private final String key;
-    private final Visibility visibility;
+    private final String visibility;
     private final long timestamp;
 
     public PropertyMetadataValue(
@@ -23,7 +23,7 @@ public class PropertyMetadataValue extends PropertyValueBase {
         super(propertyKey, propertyName, propertyVisibility);
         this.key = key;
         this.value = value;
-        this.visibility = visibility;
+        this.visibility = visibility.getVisibilityString();
         this.timestamp = timestamp;
     }
 
@@ -48,7 +48,7 @@ public class PropertyMetadataValue extends PropertyValueBase {
     }
 
     public Visibility getVisibility() {
-        return visibility;
+        return new Visibility(visibility);
     }
 
     public long getTimestamp() {

@@ -4,14 +4,14 @@ import org.vertexium.Visibility;
 
 public class ElementHiddenValue extends SqlGraphValueBase {
     private static final long serialVersionUID = -1850142361575904766L;
-    private final Visibility visibility;
+    private final String visibility;
 
     public ElementHiddenValue(Visibility visibility) {
-        this.visibility = visibility;
+        this.visibility = visibility.getVisibilityString();
     }
 
     public Visibility getVisibility() {
-        return visibility;
+        return new Visibility(visibility);
     }
 
     @Override

@@ -6,7 +6,7 @@ import org.vertexium.Visibility;
 public class PropertyVisibleValue extends PropertyValueBase {
     private static final long serialVersionUID = 7261634601706920158L;
     private final long timestamp;
-    private final Visibility hiddenVisibility;
+    private final String hiddenVisibility;
 
     public PropertyVisibleValue(Property property, long timestamp, Visibility hiddenVisibility) {
         this(
@@ -27,7 +27,7 @@ public class PropertyVisibleValue extends PropertyValueBase {
     ) {
         super(propertyKey, propertyName, propertyVisibility);
         this.timestamp = timestamp;
-        this.hiddenVisibility = hiddenVisibility;
+        this.hiddenVisibility = hiddenVisibility.getVisibilityString();
     }
 
     public long getTimestamp() {
@@ -35,7 +35,7 @@ public class PropertyVisibleValue extends PropertyValueBase {
     }
 
     public Visibility getHiddenVisibility() {
-        return hiddenVisibility;
+        return new Visibility(hiddenVisibility);
     }
 
     @Override

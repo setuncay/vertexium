@@ -6,7 +6,7 @@ public class PropertyValueBase extends SqlGraphValueBase {
     private static final long serialVersionUID = 6380908379560535511L;
     private final String propertyKey;
     private final String propertyName;
-    private final Visibility propertyVisibility;
+    private final String propertyVisibility;
 
     public PropertyValueBase(
             String propertyKey,
@@ -15,7 +15,7 @@ public class PropertyValueBase extends SqlGraphValueBase {
     ) {
         this.propertyKey = propertyKey;
         this.propertyName = propertyName;
-        this.propertyVisibility = propertyVisibility;
+        this.propertyVisibility = propertyVisibility.getVisibilityString();
     }
 
     public String getPropertyKey() {
@@ -28,7 +28,7 @@ public class PropertyValueBase extends SqlGraphValueBase {
 
 
     public Visibility getPropertyVisibility() {
-        return propertyVisibility;
+        return new Visibility(propertyVisibility);
     }
 
     @Override

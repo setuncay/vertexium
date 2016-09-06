@@ -5,11 +5,11 @@ import org.vertexium.Visibility;
 public class ElementSignalValueBase extends SqlGraphValueBase {
     private static final long serialVersionUID = 4352884290693475794L;
     private final long timestamp;
-    private final Visibility visibility;
+    private final String visibility;
 
     protected ElementSignalValueBase(long timestamp, Visibility visibility) {
         this.timestamp = timestamp;
-        this.visibility = visibility;
+        this.visibility = visibility.getVisibilityString();
     }
 
     public long getTimestamp() {
@@ -17,7 +17,7 @@ public class ElementSignalValueBase extends SqlGraphValueBase {
     }
 
     public Visibility getVisibility() {
-        return visibility;
+        return new Visibility(visibility);
     }
 
     @Override

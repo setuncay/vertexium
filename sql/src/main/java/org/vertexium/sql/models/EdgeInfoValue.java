@@ -7,7 +7,7 @@ public class EdgeInfoValue extends VertexTableEdgeValueBase {
     private static final long serialVersionUID = -57036505856770487L;
     private final Direction direction;
     private final String edgeLabel;
-    private final Visibility edgeVisibility;
+    private final String edgeVisibility;
     private final String otherVertexId;
 
     public EdgeInfoValue(
@@ -20,7 +20,7 @@ public class EdgeInfoValue extends VertexTableEdgeValueBase {
         super(edgeId);
         this.direction = direction;
         this.edgeLabel = edgeLabel;
-        this.edgeVisibility = edgeVisibility;
+        this.edgeVisibility = edgeVisibility.getVisibilityString();
         this.otherVertexId = otherVertexId;
     }
 
@@ -33,7 +33,7 @@ public class EdgeInfoValue extends VertexTableEdgeValueBase {
     }
 
     public Visibility getEdgeVisibility() {
-        return edgeVisibility;
+        return new Visibility(edgeVisibility);
     }
 
     public String getOtherVertexId() {

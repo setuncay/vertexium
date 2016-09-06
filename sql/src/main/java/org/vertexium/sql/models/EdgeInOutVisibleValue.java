@@ -5,15 +5,15 @@ import org.vertexium.Visibility;
 
 public abstract class EdgeInOutVisibleValue extends VertexTableEdgeValueBase {
     private static final long serialVersionUID = 3279237608503657664L;
-    private final Visibility visibility;
+    private final String visibility;
 
     public EdgeInOutVisibleValue(String edgeId, Visibility visibility) {
         super(edgeId);
-        this.visibility = visibility;
+        this.visibility = visibility.getVisibilityString();
     }
 
     public Visibility getVisibility() {
-        return visibility;
+        return new Visibility(visibility);
     }
 
     @Override
