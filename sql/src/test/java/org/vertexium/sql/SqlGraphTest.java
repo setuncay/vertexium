@@ -1,5 +1,6 @@
 package org.vertexium.sql;
 
+import org.h2.store.fs.FileUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.runner.RunWith;
