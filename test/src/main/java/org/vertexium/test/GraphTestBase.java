@@ -6985,6 +6985,28 @@ public abstract class GraphTestBase {
     }
 
     @Test
+    public void testFetchHintsEdgesSummary() {
+        Vertex v1 = graph.addVertex("v1", VISIBILITY_A, AUTHORIZATIONS_ALL);
+        Vertex v2 = graph.addVertex("v2", VISIBILITY_A, AUTHORIZATIONS_ALL);
+        Vertex v3 = graph.addVertex("v3", VISIBILITY_A, AUTHORIZATIONS_ALL);
+        graph.flush();
+
+        graph.addEdge("e v1->v2", v1, v2, LABEL_LABEL1, VISIBILITY_A, AUTHORIZATIONS_ALL);
+        graph.addEdge("e v1->v3", v1, v3, LABEL_LABEL2, VISIBILITY_A, AUTHORIZATIONS_ALL);
+        graph.flush();
+
+        v1 = graph.getVertex("v1", FetchHints.EDGE_LABELS, AUTHORIZATIONS_ALL);
+        EdgesSummary summary = v1.getEdgesSummary(AUTHORIZATIONS_ALL);
+        assertEquals(2, summary.getEdgeLabels().size());
+        assertTrue(LABEL_LABEL1 + " missing", summary.getEdgeLabels().contains(LABEL_LABEL1));
+        assertTrue(LABEL_LABEL2 + " missing", summary.getEdgeLabels().contains(LABEL_LABEL2));
+        assertEquals(2, summary.getOutEdgeLabels().size());
+        assertEquals(0, summary.getInEdgeLabels().size());
+        assertEquals(1, (int) summary.getOutEdgeCountsByLabels().get(LABEL_LABEL1));
+        assertEquals(1, (int) summary.getOutEdgeCountsByLabels().get(LABEL_LABEL2));
+    }
+
+    @Test
     public void testIPAddress() {
         graph.defineProperty("ipAddress2").dataType(IpV4Address.class).define();
 

@@ -10,7 +10,8 @@ import org.vertexium.util.ConvertingIterable;
 import org.vertexium.util.FilterIterable;
 import org.vertexium.util.IterableUtils;
 
-import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
 
 public class InMemoryVertex extends InMemoryElement<InMemoryVertex> implements Vertex {
     public InMemoryVertex(
@@ -236,6 +237,26 @@ public class InMemoryVertex extends InMemoryElement<InMemoryVertex> implements V
                 return o.getLabel();
             }
         });
+    }
+
+    @Override
+    public EdgesSummary getEdgesSummary(Authorizations authorizations) {
+        Map<String, Integer> outEdgeCountsByLabels = new HashMap<>();
+        Map<String, Integer> inEdgeCountsByLabels = new HashMap<>();
+
+        for (EdgeInfo entry : getEdgeInfos(Direction.IN, authorizations)) {
+            String label = entry.getLabel();
+            Integer c = inEdgeCountsByLabels.getOrDefault(label, 0);
+            inEdgeCountsByLabels.put(label, c + 1);
+        }
+
+        for (EdgeInfo entry : getEdgeInfos(Direction.OUT, authorizations)) {
+            String label = entry.getLabel();
+            Integer c = outEdgeCountsByLabels.getOrDefault(label, 0);
+            outEdgeCountsByLabels.put(label, c + 1);
+        }
+
+        return new EdgesSummary(outEdgeCountsByLabels, inEdgeCountsByLabels);
     }
 
     @Override

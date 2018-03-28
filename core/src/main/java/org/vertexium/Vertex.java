@@ -223,6 +223,14 @@ public interface Vertex extends Element {
     Iterable<String> getEdgeLabels(Direction direction, Authorizations authorizations);
 
     /**
+     * Gets edge summary information
+     *
+     * @param authorizations The authorizations used to get the edges summary
+     * @return The edges summary
+     */
+    EdgesSummary getEdgesSummary(Authorizations authorizations);
+
+    /**
      * Get a list of EdgeInfo.
      *
      * @param direction      The direction of the edge.
